@@ -46,7 +46,7 @@ else
     word='CT';
 end
 load(strcat(fullfile(pwd,'/Initial Samplings'),'/',word,'_t',num2str(type),...
-    '_',func2str(SurfB),'_n',num2str(n),'.mat'))
+    '_',nameB,'_n',num2str(n),'.mat'))
 if all(x_lim == x_lim_in) && all(y_lim == y_lim_in) && (pad == pad_in)
     %Sick
 else
@@ -139,7 +139,7 @@ elseif method==2 || method==3
         % Use the GPR to predict surface B at higher resolution
         prediction=table(xd,yd,'VariableNames',{'x','y'});
     
-        [zBp,zBpsd,zBpCI] = predict(gprMdlB,prediction,'Alpha',0.01);
+        [zBp,zBpsd,zBpCI] = predict(gprMdlB,prediction,'Alpha',0.1);
     
         xBp=reshape(xd,res_s,res_s);
         yBp=reshape(yd,res_s,res_s);
@@ -160,7 +160,7 @@ elseif method==2 || method==3
                 testpoints(iter+1,3)=mrdtcs(newpt(1), newpt(2));
                 t(iter)=toc;
             else
-                testpoints(iter+1,:)=dataB(dsearchn(dataB,newpt(1:2)));
+                testpoints(iter+1,:)=table2array(dataB(dsearchn(table2array(dataB(:,{'x','y'})),newpt(1:2)),:));
             end
             % Record the time it took to train the model and find the next point
             t(iter)=toc;
@@ -324,7 +324,7 @@ view(3)
 e=colorbar;
 e.Label.String='Absolute Error (mm)';
 clim([0 cmax])
-title({'Gausian Process Regression Model','of Freeform Surface'})
+title({'Gaussian Process Regression Model','of a Freeform Surface'})
 colormap('viridis')
 
 subplot(2,1,2)
@@ -336,9 +336,9 @@ axis equal
 xlabel('x(mm)')
 ylabel('y(mm)')
 c=colorbar;
-c.Label.String='99% CI Width (mm)';
+c.Label.String='90% CI Width (mm)';
 clim([0 cmax])
-title('\phi(x,y) 99% Confidence Interval Width')
+title('\phi(x,y) 90% Confidence Interval Width')
 fontsize(gcf, scale=1.5) % Note that fontsize increase affects entie figure
 
 
@@ -372,7 +372,7 @@ c=colorbar;
 c.Label.String='False - True';
 clim([0 1])
 c.Ticks=[0 1];
-title({'Is the CI smaller than the max deviation?','u_{99%}(x,y)<d_{max}'})
+title({'Is the CI smaller than the max deviation?','u_{90%}(x,y)<d_{max}'})
 double=viridis(5);
 colormap(gca,[double(1,:); double(end,:)])
 fontsize(gcf, scale=1.5)

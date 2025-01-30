@@ -37,9 +37,15 @@ if doaprint
     word='TCS';
 else
     [initindex, dist]=dsearchn(table2array(dataB(:,{'x','y'})),[xt yt]);
-    [xt, yt, ztB]=table2array(dataB(initindex,:));
+    xt=table2array(dataB(initindex,'x'));
+    yt=table2array(dataB(initindex,'y'));
+    ztB=table2array(dataB(initindex,'z'));
     % Record the time it took to find the initial points
-    t(1:n^2+1)=toc;
+    if method==1
+        t(1:n^2+1)=toc;
+    elseif method==2 || method==3
+        t(1:n)=toc;
+    end
     word='CT';
 end
 
@@ -52,4 +58,4 @@ testpoints=[xt yt ztB];
 
 % Save the points and sampling time to be called later
 save(strcat(fullfile(pwd,'/Initial Samplings'),'/',word,'_t',num2str(type),...
-    '_',func2str(SurfB),'_n',num2str(n),'.mat'),"testpoints","t","sampletime","x_lim_in","y_lim_in","pad_in") 
+    '_',nameB,'_n',num2str(n),'.mat'),"testpoints","t","sampletime","x_lim_in","y_lim_in","pad_in") 
