@@ -1,0 +1,404 @@
+%% Simulation and implementation of Bezier Surface Fitting (Jafari and Gans), Vanilla BO, and BO with a CT scan prior
+%% Jake Colwell and Zyaire Howard
+%% January 15, 2025
+
+%% Setup 
+% Delete all figures (including the pesky image viewer), clear workspace and command window
+all_figs = findobj(0, 'type', 'figure');delete(all_figs);clear;clc;
+% Add all current folders to the path
+addpath(genpath(fullfile(pwd)))
+% Start a timer
+tic
+% Record the start time to a string to use in the filename
+starttime=string(datetime('now','Format','yyyyMMdd_HHmmss'));
+
+%% Inputs
+Inputs
+fname=strcat(fullfile(pwd,'/Data'),'/',starttime,'_',nameA,'_',nameB,'_','M',num2str(method)); % Filename to write to
+
+%% Calculations
+% range
+x_min = min(x_lim); x_max = max(x_lim); x_rng=x_max-x_min;
+y_min = min(y_lim); y_max = max(y_lim); y_rng=y_max-y_min;
+
+% Generating x and y vectors 
+x=linspace(x_min+pad, x_max-pad, res_s);
+y=linspace(y_min+pad, y_max-pad, res_s);
+
+% Generating a list of every (x,y) coordinate
+[xd, yd]=meshgrid(x,y);
+xd=xd(:);
+yd=yd(:);
+
+% Interpolate Z-Values at the specified resolution
+zA=reshape(fA([xd,yd]),res_s,res_s);
+zB=reshape(fB([xd,yd]),res_s,res_s);
+
+% Call Initial Sampling generated with 'generateInitialSamplings.m'
+if method==1
+    type=1;
+elseif method==2 || method==3
+    type=2;
+end
+if doaprint
+    word='TCS';
+else
+    word='CT';
+end
+load(strcat(fullfile(pwd,'/Initial Samplings'),'/',word,'_t',num2str(type),...
+    '_',func2str(SurfB),'_n',num2str(n),'.mat'))
+if all(x_lim == x_lim_in) && all(y_lim == y_lim_in) && (pad == pad_in)
+    %Sick
+else
+    disp(['ERROR: Inputs do not match saved sampling. Either create a new' ...
+        ' sampling with these inputs or change your inputs to match the initial sampling.'])
+    return
+end
+
+if method==1
+    if ~doaprint
+        if m>n
+            iter=n:m;
+        elseif m<n
+            disp('Error: Final number of points (m) must be greater than or equal to n')
+            return
+        else 
+            iter = m;
+        end
+    elseif doaprint
+        iter=n;
+    end
+elseif method==2 || method==3
+    % Determine how many iterations the user specified, m will be the variable for the for loop
+    if m>n
+       iter=n:m;
+    elseif m<n
+       disp('Error: Final number of points (m) must be greater than or equal to n')
+       return
+    else 
+       iter = m;
+    end
+end
+
+% Perform pre-BO actions like table initialization, that vary by method
+
+if method==1
+    % IMPLEMENT JAFARI AND GANS
+elseif method==2
+    gprMdls=cell(m,1);
+elseif method==3
+    gprMdls=cell(m,1);
+    % Load a previously trained GPR to serve as a Prior
+    load(strcat(fullfile(pwd,'/TrainedPriors'),'/',nameA,'.mat'))
+    gprMdls{n-1}=gprMdlA;
+end
+
+% Initialize tables for the loop
+Train = table(zeros(m,1),zeros(m,1),zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'TotAE','MaxAE','MAE','RMSE','R2'});
+Test = table(zeros(m,1),zeros(m,1),zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'TotAE','MaxAE','MAE','RMSE','R2'});
+modelPerformance=table(Train, Test, zeros(m,1),'VariableNames',{'Train','Test','MaxCIWidth'});
+% Create a figure to plot too
+f0=figure('Position',[0 0 1000 600]);
+
+if method==1
+    if doaprint
+        % Jafari and Gans w/ TCS for one number
+    else
+        for iter=iter
+            % Jafari and Gans simulation for iter=n:1:m
+        end
+    end
+elseif method==2 || method==3
+    % Main BO Loop 
+    for iter=iter 
+        % Create a table of the training and test data
+        train=table(testpoints(:,1),testpoints(:,2),testpoints(:,3),'VariableNames',{'x', 'y','z'});
+    
+        % Train a GPR on surface B
+        if method==2
+            gprMdlB = fitrgp(train,'z');
+        elseif method == 3
+            gprMdlB = fitrgp(train,'z', ...
+                'FitMethod',gprMdlA.FitMethod,...
+                'Basis',gprMdlA.BasisFunction,...
+                'Beta',gprMdlA.Beta,...
+                'Sigma',gprMdlA.Sigma,...
+                'Standardize',gprMdlA.ModelParameters.Standardize,...
+                'KernelFunction',gprMdlA.KernelFunction,...
+                'KernelParameters',gprMdlA.KernelInformation.KernelParameters);
+        end
+        gprMdls{iter}=gprMdlB;
+    
+        % Use the GPR to predict surface B at higher resolution
+        prediction=table(xd,yd,'VariableNames',{'x','y'});
+    
+        [zBp,zBpsd,zBpCI] = predict(gprMdlB,prediction,'Alpha',0.01);
+    
+        xBp=reshape(xd,res_s,res_s);
+        yBp=reshape(yd,res_s,res_s);
+        zBp=reshape(zBp,res_s,res_s);
+    
+        % Caluculate the lower and upper bounding surfaces from the coinfidence interval
+        zBpCImx=reshape(zBpCI(:,2),res_s,res_s);
+        zBpCImn=reshape(zBpCI(:,1),res_s,res_s);
+        
+        if iter~=m
+            % Find a new point to test
+            newpt=table2array(A2(prediction,zBpsd,testpoints(:,1:2)));
+            
+            % Observe it and add it to the training data
+            testpoints(iter+1,1:2)=newpt(1:2);
+            if doaprint
+                % TCS ON MRD
+                testpoints(iter+1,3)=mrdtcs(newpt(1), newpt(2));
+                t(iter)=toc;
+            else
+                testpoints(iter+1,:)=dataB(dsearchn(newpt(1:2),dataB));
+            end
+            % Record the time it took to train the model and find the next point
+            t(iter)=toc;
+        end
+        
+        zBl=zB(:);
+
+        % Store the current time
+        t(iter)=toc;
+        
+        % Error Calculation
+        trainError = table2array(predict(gprMdlB,train(:,{'x','y'}))-train(:,'z'));
+        trainabsError = abs(trainError);
+        testError = zBp(:)-zBl;
+        testabsError = abs(testError);
+        
+        % Calculate metrics
+        modelPerformance.Train.TotAE(iter) = sum(trainabsError);
+        modelPerformance.Train.MaxAE(iter) = max(trainabsError);
+        modelPerformance.Train.MAE(iter) = mean(trainabsError);
+        modelPerformance.Train.RMSE(iter) = std(trainError);
+        modelPerformance.Train.R2(iter) = 1-sum(trainError.^2)/sum((zBl-mean(zBl)).^2);
+        modelPerformance.Test.TotAE(iter) = sum(testabsError);
+        modelPerformance.Test.MaxAE(iter) = max(testabsError);
+        modelPerformance.Test.MAE(iter) = mean(testabsError);
+        modelPerformance.Test.RMSE(iter) = std(testError);
+        modelPerformance.Test.R2(iter) = 1-sum(testError.^2)/sum((zBl-mean(zBl)).^2);
+        modelPerformance.MaxCIWidth(iter) = max(abs((zBpCI(:,2)-zBpCI(:,1))/2));
+        
+        % Record and display information
+        fprintf('# of pts: %i \tElapsed Time: %.4f \tCurrent Test Loss: %.4g\n',iter,t(iter),modelPerformance.Test.RMSE(iter)^2)
+        % Plot surface to make animation
+        figure(f0)
+        % Test points on Surface B
+        plot3(testpoints(1:iter,1),testpoints(1:iter,2),testpoints(1:iter,3),'LineStyle','none','MarkerSize',5,'Marker','o', ...
+        'MarkerEdgeColor','white','MarkerFaceColor','black','LineWidth',2);
+        hold on
+        % Test points on Surface B
+        if iter~=m
+            plot3(testpoints(iter+1,1),testpoints(iter+1,2),zBp(xBp==newpt(1)&yBp==newpt(2)),'LineStyle','none','MarkerSize',5,'Marker','*', ...
+                'MarkerEdgeColor','red','LineWidth',2);
+        end
+        % Mean Surface
+        surf(xBp,yBp,zBp,reshape(testabsError,res_s,res_s),'LineStyle','none');
+        % Surface B
+        % surf(x,y,zB,'FaceAlpha',.1,'FaceColor',[.5 0 .5],'EdgeColor',[.5 0 .5],'LineStyle','none');
+        % Maximum Surface
+        surf(xBp,yBp,zBpCImx, ...
+            'FaceAlpha',.1,'FaceColor',[.5 .5 .5],'EdgeColor',[.5 0 .5],'LineStyle','none');
+        % Minimum Surface
+        surf(xBp,yBp,zBpCImn, ...
+            'FaceAlpha',.1,'FaceColor',[.5 .5 .5],'EdgeColor',[.5 0 .5],'LineStyle','none');
+        % Make plot pretty 
+        xlabel('x (mm)')
+        ylabel('y (mm)')
+        zlabel('z (mm)')
+        axis equal
+        axis([-30 30 -30 30 0 20])
+        view(3)
+        e=colorbar;
+        e.Label.String='Absolute Error (mm)';
+        clim([0 cmax])
+        title({strcat('Bayesian Optimization, n=',num2str(iter))}) 
+        if iter~=m
+        legend('Tested Points','Next Point to Test','Mean GPR Prediction','99% CI','Orientation','horizontal','Location','southoutside')
+        elseif iter==m
+        legend('Tested Points','Mean GPR Prediction','99% CI','Orientation','horizontal','Location','southoutside')
+        end
+        colormap('viridis')
+        fontsize(f0, scale=2)
+        hold off
+        
+        %Save frame to a gif 
+        % drawnow
+        % frame = getframe(f0);
+        % im = frame2im(frame);
+        % [imind,cm] = rgb2ind(im,256);
+        % if iter == n^2+1
+        %     imwrite(imind,cm,strcat(fname,'.gif'),'gif', 'Loopcount',inf);
+        % else
+        %     imwrite(imind,cm,strcat(fname,'.gif'),'gif','WriteMode','append','DelayTime', 0.25);
+        % end
+    end
+end
+
+% Curve Mapping
+% Create the desired curve
+[u_c, v_c] = Curve(linspace(0, 1, res_c+1)');
+
+% Use direct projection on the curve (map parameter space to real space)
+x_c = (x_max - x_min) * u_c + x_min;
+y_c = (y_max - y_min) * v_c + y_min;
+
+% Create a table for the curve points to predict deformation using GPR
+curve_pts = table(x_c, y_c, 'VariableNames', {'x', 'y'});
+
+% Predict the deformation values (phi) for the curve points using the GPR model
+[z_c, ~, ~] = predict(gprMdlB, curve_pts);
+
+% Assemble the points
+wypts=[x_c,y_c,z_c];
+
+%% Plotting
+% Quick Error Reshape
+testError = reshape(testError,res_s,res_s);
+testabsError = abs(testError);
+
+all_figs = findobj(0, 'type', 'figure');
+delete(setdiff(all_figs, f0));
+
+f1=figure('WindowStyle','docked');
+f2=figure('WindowStyle','docked');
+f3=figure('WindowStyle','docked');
+f4=figure('WindowStyle','docked');
+
+% Figure 1: Plot of Surface A, Surface B, the training data
+figure(f1)
+hold on
+% Surface A
+surf(x,y,zA,'FaceAlpha',.1,'FaceColor',[1 .5 0],'EdgeColor',[1 .5 0],'LineStyle','none');
+% Surface B
+surf(x,y,zB,'FaceAlpha',.1,'FaceColor',[.5 0 .5],'EdgeColor',[.5 0 .5],'LineStyle','none');
+% Phi
+quiver3(testpoints(:,1),testpoints(:,2),fA(testpoints(:,1),testpoints(:,2)),zeros(size(testpoints,1),1),zeros(size(testpoints,1),1),testpoints(:,3)-fA(testpoints(:,1),testpoints(:,2)),0)
+% Test points on Surface A
+plot3(testpoints(:,1),testpoints(:,2),SurfA(testpoints(:,1),testpoints(:,2)),'LineStyle','none','Marker','.')
+% Test points on Surface B
+plot3(testpoints(:,1),testpoints(:,2),testpoints(:,3),'LineStyle','none','Marker','*')
+% Make Plot Pretty
+xlabel('x (mm)')
+ylabel('y (mm)')
+zlabel('z (mm)')
+axis equal
+axis([-30 30 -30 30 0 20])
+legend('Surface A','Surface B','\phi','f_A(x,y)','f_{B}(x,y)',Location='northeast')
+view(3)
+fontsize(gcf, scale=1.5)
+
+
+% Figure 2: Plot of predicted surface and heatmap of conidence interval width
+figure(f2)
+subplot(2,1,1)
+hold on
+% Mean Surface
+surf(xBp,yBp,zBp,testabsError,'LineStyle','none');
+% Surface B
+% surf(x,y,zB,'FaceAlpha',.1,'FaceColor',[.5 0 .5],'EdgeColor',[.5 0 .5],'LineStyle','none');
+% Maximum Surface
+surf(xBp,yBp,zBpCImx, ...
+    'FaceAlpha',.1,'FaceColor',[.5 .5 .5],'EdgeColor',[.5 0 .5],'LineStyle','none');
+% Minimum Surface
+surf(xBp,yBp,zBpCImn, ...
+    'FaceAlpha',.1,'FaceColor',[.5 .5 .5],'EdgeColor',[.5 0 .5],'LineStyle','none');
+% Make plot pretty
+xlabel('x (mm)')
+ylabel('y (mm)')
+zlabel('z (mm)')
+axis equal
+axis([-30 30 -30 30 0 20])
+view(3)
+e=colorbar;
+e.Label.String='Absolute Error (mm)';
+clim([0 cmax])
+title({'Gausian Process Regression Model','of Freeform Surface'})
+colormap('viridis')
+
+subplot(2,1,2)
+% Confidence Interval Heatmap
+contourf(xBp,yBp,reshape((zBpCI(:,2)-zBpCI(:,1))/2,res_s,res_s),n,'LineStyle','none')
+% Make plot pretty
+axis([-30+pad 30-pad -30+pad 30-pad])
+axis equal
+xlabel('x(mm)')
+ylabel('y(mm)')
+c=colorbar;
+c.Label.String='99% CI Width (mm)';
+clim([0 cmax])
+title('\phi(x,y) 99% Confidence Interval Width')
+fontsize(gcf, scale=1.5) % Note that fontsize increase affects entie figure
+
+
+% Figure 3: Printability Evaluation
+figure(f3)
+subplot(2,1,1)
+% Plot of area where the mean surface is within the maximum deviation from the mean
+canitprint=abs(zBp-zB)<cmax;
+contourf(xBp,yBp,reshape(canitprint,res_s,res_s),[-.01 .99],'LineStyle','none')
+% Make plot pretty
+axis equal
+xlabel('x(mm)')
+ylabel('y(mm)')
+c=colorbar;
+c.Label.String='False - True';
+clim([0 1])
+c.Ticks=[0 1];
+title({'Is the mean prediction within tolerance?','|f_{A''}(x,y)-f_B(x,y)|<d_{max}'})
+double=viridis(5);
+colormap(gca,[double(1,:); double(end,:)])
+
+subplot(2,1,2)
+% Plot of where the confidence interval is smaller than the max deviation
+canitprint=abs(zBpCI(:,1)-zBpCI(:,2))/2<cmax;
+contourf(xBp,yBp,reshape(canitprint,res_s,res_s),[-.01 .99],'LineStyle','none')
+% Make plot pretty
+axis equal
+xlabel('x(mm)')
+ylabel('y(mm)')
+c=colorbar;
+c.Label.String='False - True';
+clim([0 1])
+c.Ticks=[0 1];
+title({'Is the CI smaller than the max deviation?','u_{99%}(x,y)<d_{max}'})
+double=viridis(5);
+colormap(gca,[double(1,:); double(end,:)])
+fontsize(gcf, scale=1.5)
+
+% Figure 4: Presentation Plots
+figure(f4)
+hold on
+% Mean Surface
+surf(xBp,yBp,zBp,testabsError,'LineStyle','none');
+% Test points on Surface B
+plot3(testpoints(:,1),testpoints(:,2),testpoints(:,3),'LineStyle','none','MarkerSize',5,'Marker','o', ...
+    'MarkerEdgeColor','red','LineWidth',2)
+% Mapped Curve
+plot3(x_c,y_c,z_c,'LineWidth',2,'Color','red')
+% Make plot pretty
+xlabel('x (mm)')
+ylabel('y (mm)')
+zlabel('z (mm)')
+axis equal
+axis([-30 30 -30 30 0 20])
+view(3)
+e=colorbar;
+e.Label.String='Absolute Error (mm)';
+clim([0 cmax])
+title('Mean Surface')
+colormap('viridis')
+fontsize(gcf, scale=1.5)
+
+% save(strcat(fname,'.mat'))
+% 
+% % Show GIF
+% [gifImage, cmap] = imread(strcat(fname,'.gif'), 'Frames', 'all');
+% gifsize=size(gifImage);
+% hi=implay(gifImage);
+% hi.Visual.ColorMap.Map=cmap;
+% hi.Parent.Position=[0,0,gifsize(2),gifsize(1)];
