@@ -6,7 +6,7 @@ function newpt=A2(prediction,zBpsd,tested)
         newpt = newpt(randperm(size(newpt,1)),:);
         newpt = newpt(1,:);
     else
-        [k,dist]=dsearchn(tested,table2array(prediction));
-        newpt=prediction(k(dist==max(dist)),:);
+        [~,dist]=dsearchn(tested,table2array(prediction));
+        newpt=prediction(dist==max(dist),:);
     end
 end

@@ -448,8 +448,7 @@ set(gca,'YScale','log')
 set(gca,'XScale','log')
 legend('MaxAE_{test}','MaxAE_{train}','MaxAE_{LOOCV}') 
 ylabel('Maximum Absolute Error (mm)')
-axis([10e0 m 10e-5 10e1])
-
+axis([10 m 10e-4 10])
 subplot(2,2,2)
 hold on
 plot(n:m,(modelPerformance.Test.MAE(n:m)),'Color',[0.9290 0.6940 0.1250],'LineStyle','-','LineWidth',2)
@@ -459,7 +458,6 @@ set(gca,'YScale','log')
 set(gca,'XScale','log')
 legend('MAE_{test}','MAE_{train}','MAE_{LOOCV}') 
 ylabel('Mean Absolute Error (mm)')
-axis([10e0 m 10e-5 10e1])
 
 subplot(2,2,3)
 hold on
@@ -470,7 +468,6 @@ set(gca,'YScale','log')
 set(gca,'XScale','log')
 legend('RSME_{test}','RSME_{train}','RSME_{LOOCV}') 
 ylabel('Root Mean Square Error (mm)')
-axis([10e0 m 10e-5 10e1])
 
 subplot(2,2,4)
 hold on
@@ -479,7 +476,6 @@ set(gca,'YScale','log')
 set(gca,'XScale','log')
 legend('Maximum CI Width') 
 ylabel('Maximum 90% Confidence Interval Width (mm)')
-axis([10e0 m 10e-5 10e1])
 
 % plot(n:m,(modelPerformance.Test.TotAE(n:m)),'Color',[0 0.4470 0.7410],'LineStyle','-','LineWidth',2)
 % plot(n:m,(modelPerformance.Train.TotAE(n:m)),'Color',[0 0.4470 0.7410],'LineStyle','--','LineWidth',2)
@@ -517,7 +513,6 @@ plot(n:m,(modelPerformance.MaxCIWidth(n:m)),'Color',[0.3010 0.7450 0.9330],'Line
 % plot(n:m,(modelPerformance.CV.R2(n:m)),'Color',[0.4660 0.6740 0.1880],'LineStyle',':','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
-axis([10e0 m 10e-5 10e1])
 legend('MaxAE_{test}','MaxAE_{train}','MaxAE_{LOOCV}','MAE_{test}','MAE_{train}','MAE_{LOOCV}',...
     'RSME_{test}','RSME_{train}','RSME_{LOOCV}','Maximum CI Width','NumColumns',4) 
 xlabel('Number of Points (n)')
