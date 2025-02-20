@@ -123,35 +123,30 @@ if method==1
         disp('ERROR: Printing Not Yet Implemented')
         return
     else
-        for iter=iter
+        parfor iter=iter
             fprintf('Calculating Bézier Surface for iter=%i\n',iter)
             % Jafari and Gans simulation for iter=n:1:m
-            load(strcat(fullfile(pwd,'/Initial Samplings'),'/',word,'_t',num2str(type),...
+            initialsampling = load(strcat(fullfile(pwd,'/Initial Samplings'),'/',word,'_t',num2str(type),...
                 '_',nameB,'_n',num2str(iter),'.mat'))
-            if all(x_lim == x_lim_in) && all(y_lim == y_lim_in) && (pad == pad_in)
-                %Sick
+            if all(x_lim == initialsampling.x_lim_in) && all(y_lim == initialsampling.y_lim_in) && (pad == initialsampling.pad_in)
             else
                 disp(['ERROR: Inputs do not match saved sampling. Either create a new' ...
                     ' sampling with these inputs or change your inputs to match the initial sampling.'])
-                return
             end
             
-            P_i=reshape(testpoints,[iter, iter, 3]);
+            P_i=reshape(initialsampling.testpoints,[iter, iter, 3]);
             u=linspace(0,1,iter);
             v=linspace(0,1,iter);
             fun=@(P)cost(u,v,P,P_i);
-            [P_o,J]=fmincon(fun,P_i,A,B,Aeq,Beq,lb,ub,nonlin,opts);
+            [P_o{iter},J]=fmincon(fun,P_i,A,B,Aeq,Beq,lb,ub,nonlin,opts);
 
             % Predict surface at higher resolution
-            train_pred=bezierSurf(u,v,P_o);
-            test=bezierSurf(rescale(x),rescale(y),P_o);
+            train_pred=bezierSurf(u,v,P_o{iter});
+            test=bezierSurf(rescale(x),rescale(y),P_o{iter});
             fB_p=scatteredInterpolant(test(:,1:2),test(:,3),'natural');
-            xBp=reshape(test(:,1),res_s,res_s);
-            yBp=reshape(test(:,2),res_s,res_s);
-            zBp=reshape(test(:,3),res_s,res_s);
-
-            % Store the current time
-            t2(iter)=toc;
+            xBp{iter}=reshape(test(:,1),res_s,res_s);
+            yBp{iter}=reshape(test(:,2),res_s,res_s);
+            zBp{iter}=reshape(test(:,3),res_s,res_s);
 
             % Bézier Cross-Validation
             cvError=zeros(iter-2,iter);
@@ -170,9 +165,9 @@ if method==1
                     SB_cv=bezierSurf(linspace(0,1,res_s),linspace(0,1,res_s),P_cv);
                     fB_cv=scatteredInterpolant(SB_cv(:,1:2),SB_cv(:,3),'natural');
                     if j
-                        SB_cv2=bezierSurf(u,v(i),P_o);
+                        SB_cv2=bezierSurf(u,v(i),P_o{iter});
                     else
-                        SB_cv2=bezierSurf(u(i),v,P_o);
+                        SB_cv2=bezierSurf(u(i),v,P_o{iter});
                     end
                     zBcv(index,:)=fB_cv(SB_cv2(:,1:2));
                     cvError(index,:)=SB_cv2(:,3)'-zBcv(index,:);
@@ -181,28 +176,43 @@ if method==1
             end
 
             % Error Calculation
-            trainError = fB_p(testpoints(:,1:2))-testpoints(:,3);
+            trainError = fB_p(initialsampling.testpoints(:,1:2))-initialsampling.testpoints(:,3);
             trainabsError = abs(trainError);
             cvError=cvError(:);
             cvabsError = abs(cvError);
             testError = fB_p(table2array(dataB(:,{'x','y'})))-dataB.z;
             disp('Reminder to remove training data from test error calculation')
             testabsError = abs(testError);
-            plotabsError=abs(fB(xBp,yBp)-zBp);
+            plotabsError{iter}=abs(fB(xBp{iter},yBp{iter})-zBp{iter});
             
             % Calculate Metrics
-            calcModelPerformance
+            modelPerformance(iter,:).Train.TotAE = sum(trainabsError);
+            modelPerformance(iter,:).Train.MaxAE = max(trainabsError);
+            modelPerformance(iter,:).Train.MAE = mean(trainabsError);
+            modelPerformance(iter,:).Train.RMSE = std(trainError);
+            modelPerformance(iter,:).CV.TotAE = sum(cvabsError);
+            modelPerformance(iter,:).CV.MaxAE = max(cvabsError);
+            modelPerformance(iter,:).CV.MAE = mean(cvabsError);
+            modelPerformance(iter,:).CV.RMSE = std(cvError);
+            modelPerformance(iter,:).Test.TotAE = sum(testabsError);
+            modelPerformance(iter,:).Test.MaxAE = max(testabsError);
+            modelPerformance(iter,:).Test.MAE = mean(testabsError);
+            modelPerformance(iter,:).Test.RMSE = std(testError);
+            modelPerformance(iter,:).MaxCIWidth = NaN;
+            
+            % Store the current time
+            t2(iter)=toc;
 
             % Record and display information
-            fprintf('# of pts: %i \tElapsed Time: %.4f \tCurrent Test Loss: %.4g\n',iter^2,t2(iter),modelPerformance.Test.RMSE(iter)^2)
+            fprintf('# of pts: %i \tElapsed Time: %.4f \t\n',iter^2,t2(iter))
             % Plot surface to make animation
             figure(f0)
             % Test points on Surface B
-            plot3(testpoints(:,1),testpoints(:,2),testpoints(:,3),'LineStyle','none','MarkerSize',5,'Marker','o', ...
+            plot3(initialsampling.testpoints(:,1),initialsampling.testpoints(:,2),initialsampling.testpoints(:,3),'LineStyle','none','MarkerSize',5,'Marker','o', ...
             'MarkerEdgeColor','white','MarkerFaceColor','black','LineWidth',2);
             hold on
             % Mean Surface
-            surf(xBp,yBp,zBp,reshape(plotabsError,res_s,res_s),'LineStyle','none');
+            surf(xBp{iter},yBp{iter},zBp{iter},reshape(plotabsError{iter},res_s,res_s),'LineStyle','none');
             % Make plot pretty 
             xlabel('x (mm)')
             ylabel('y (mm)')
@@ -230,6 +240,11 @@ if method==1
                 imwrite(imind,cm,strcat(fname,'.tiff'),'tiff','WriteMode','append');
             end
         end
+        xBp=xBp{m};
+        yBp=yBp{m};
+        zBp=zBp{m};
+        plotabsError=plotabsError{m};
+        P_o=P_o{m};
     end
 elseif method==2 || method==3
     % Main BO Loop 
@@ -287,7 +302,7 @@ elseif method==2 || method==3
         % Leave-One Out Cross-Validation
         cvError=zeros(iter,1);
         zBcv=zeros(iter,1);
-        for i=1:iter
+        parfor i=1:iter
             % Create a table of the training and test data
             train_cv=train((1:iter)~=i,:);
             % Train a GPR on surface B

@@ -23,7 +23,7 @@ method=1; % Which surface fitting method to use.
 doaprint=false; % Is TCS being performed (true) or is this a simulation only (false)
 if method==1
     n=3; % Grid size of sampling points for Bezier Fitting (n x n grid, n > 3)
-    m=15; % If doing a simulation, program will test bezier fitting for n:1:m sequencially
+    m=12; % If doing a simulation, program will test bezier fitting for n:1:m sequencially
 elseif method==2 || method==3
     n=13; % Number of points to sample before starting Bayesian Optimization 
     % ^(DO NOT CHANGE)
