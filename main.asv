@@ -334,7 +334,8 @@ elseif method==2 || method==3
         plotabsError{iter}=abs(zBp{iter}-zB);
         cvabsError = abs(cvError);
         testdata=dataB(setdiff(1:size(dataB,1),initindex),:);
-        testError = table2array(predict(gprMdlB,testdata(:,{'x','y'}))-testdata(:,'z'));
+        testError = table2array(predict(gprMdlB,dataB(:,{'x','y'}))-dataB(:,'z'));
+        disp('Reminder to remove training data from test error calc')
         testabsError = abs(testError);
 
         % Calculate metrics
