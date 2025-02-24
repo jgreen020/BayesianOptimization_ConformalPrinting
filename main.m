@@ -390,11 +390,7 @@ elseif method==2 || method==3
         frame = getframe(f0);
         im = frame2im(frame);
         [imind,cm] = rgb2ind(im,256);
-        if iter == n^2+1
-            imwrite(imind,cm,strcat(fname,'.tiff'),'tiff');
-        else
-            imwrite(imind,cm,strcat(fname,'.tiff'),'tiff','WriteMode','append');
-        end
+        imwrite(imind,cm,strcat(fname,'.tiff'),'tiff','WriteMode','append');
         end
 
         t(iter)=toc;
@@ -433,9 +429,6 @@ end
 
 %% Plotting
 close all
-
-all_figs = findobj(0, 'type', 'figure');
-delete(setdiff(all_figs, f0));
 
 f1=figure('WindowStyle','docked');
 f2=figure('WindowStyle','docked');
@@ -587,7 +580,7 @@ subplot(2,2,1)
 hold on
 if method == 1
     pts=(n:m).^2;
-elseif method == 2 || methos == 3
+elseif method == 2 || method == 3
     pts=n:m;
 end
 axvec=[min(pts) max(pts) 1e-6 1e2];
