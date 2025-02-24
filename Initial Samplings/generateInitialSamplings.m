@@ -15,6 +15,7 @@ if method==1
     [xt, yt]=meshgrid(xt,yt);
     xt=xt(:);yt=yt(:);
     t=zeros(n^2,1);
+    testpoints=zeros(n^2,3);
 elseif method==2 || method==3
     type=2;
     xt1=linspace(x_min+pad, x_max-pad, 3);
@@ -26,6 +27,7 @@ elseif method==2 || method==3
     xt=[xt1(:);xt2(:)];
     yt=[yt1(:);yt2(:)];
     t=zeros(m,1);
+    testpoints=zeros(m,3);
 end
 
 if doaprint
@@ -54,8 +56,9 @@ y_lim_in = y_lim;
 pad_in = pad;
 
 % Creating a matrix of test points
-testpoints=[xt yt ztB];
+testpoints(1:size(xt,1),:)=[xt yt ztB];
 
 % Save the points and sampling time to be called later
 save(strcat(fullfile(pwd,'/Initial Samplings'),'/',word,'_t',num2str(type),...
-    '_',nameB,'_n',num2str(n),'.mat'),"testpoints","t","sampletime","x_lim_in","y_lim_in","pad_in") 
+    '_',nameB,'_n',num2str(n),'.mat'),"testpoints","t","sampletime",...
+    "x_lim_in","y_lim_in","pad_in","initindex") 
