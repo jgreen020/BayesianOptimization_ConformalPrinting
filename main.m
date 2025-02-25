@@ -124,13 +124,15 @@ elseif method==3
 end
 
 % Initialize tables for the loop
-Train = table(zeros(m,1),zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'TotAE','MaxAE','MAE','RMSE'});
-CV = table(zeros(m,1),zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'TotAE','MaxAE','MAE','RMSE'});
-Test = table(zeros(m,1),zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'TotAE','MaxAE','MAE','RMSE'});
+Train = table(zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'MaxAE','MAE','RMSE'});
+CV = table(zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'MaxAE','MAE','RMSE'});
+Test = table(zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'MaxAE','MAE','RMSE'});
 modelPerformance=table(Train, CV, Test, zeros(m,1),'VariableNames',{'Train','CV','Test','MaxCIWidth'});
 cvtimes=zeros(m,1);
 % Create a figure to plot too
+if method~=1 && savedata==true
 f0=figure('Position',[0 0 1000 600]);
+end
 
 disp('Entering the main loop')
 if method==1
@@ -201,20 +203,18 @@ if method==1
             plotabsError{iter}=abs(fB(xBp,yBp)-zBp{iter});
             
             % Calculate Metrics
-            modelPerformance(iter,:).Train.TotAE = sum(trainabsError);
             modelPerformance(iter,:).Train.MaxAE = max(trainabsError);
             modelPerformance(iter,:).Train.MAE = mean(trainabsError);
             modelPerformance(iter,:).Train.RMSE = std(trainError);
-            modelPerformance(iter,:).CV.TotAE = sum(cvabsError);
             modelPerformance(iter,:).CV.MaxAE = max(cvabsError);
             modelPerformance(iter,:).CV.MAE = mean(cvabsError);
             modelPerformance(iter,:).CV.RMSE = std(cvError);
-            modelPerformance(iter,:).Test.TotAE = sum(testabsError);
             modelPerformance(iter,:).Test.MaxAE = max(testabsError);
             modelPerformance(iter,:).Test.MAE = mean(testabsError);
             modelPerformance(iter,:).Test.RMSE = std(testError);
             modelPerformance(iter,:).MaxCIWidth = NaN;
             
+            if savedata
             % Plot surface to make animation
             figure(f0)
             % Test points on Surface B
@@ -228,7 +228,7 @@ if method==1
             ylabel('y (mm)')
             zlabel('z (mm)')
             axis equal
-            axis([-30 30 -30 30 0 20])
+            axis([x_min x_max y_min y_max 0 20])
             view(3)
             e=colorbar;
             e.Label.String='Absolute Error (mm)';
@@ -241,7 +241,6 @@ if method==1
             drawnow
 
             %Save frame to an image stack
-            if savedata
             frame = getframe(f0);
             im = frame2im(frame);
             [imind,cm] = rgb2ind(im,256);
@@ -265,7 +264,7 @@ elseif method==2 || method==3
         train=table(testpoints(1:iter,1),testpoints(1:iter,2),testpoints(1:iter,3),'VariableNames',{'x', 'y','z'});
     
         % Train a GPR on surface B
-        if method==2
+        if method == 2
             gprMdlB = fitrgp(train,'z');
         elseif method == 3
             gprMdlB = fitrgp(train,'z', ...
@@ -285,7 +284,7 @@ elseif method==2 || method==3
 
         if iter~=m
             % Find a new point to test
-            newpt=table2array(A2(prediction,zBpsd,testpoints(:,1:2)));
+            newpt=table2array(A(prediction,testpoints(:,1:2),gprMdls{iter}));
             
             % Observe it and add it to the training data
             testpoints(iter+1,1:2)=newpt(1:2);
@@ -294,7 +293,7 @@ elseif method==2 || method==3
                 testpoints(iter+1,3)=mrdtcs(newpt(1), newpt(2));
                 t(iter)=toc;
             else
-                testpoints(iter+1,:)=table2array(dataB(dsearchn(table2array(dataB(:,{'x','y'})),newpt(1:2)),:));
+                testpoints(iter+1,:)=table2array(dataB(dsearchn(table2array(dataB(:,{'x','y'})),newpt),:));
             end
         end
 
@@ -350,8 +349,10 @@ elseif method==2 || method==3
         % Test points on Surface B
         if iter~=m
             zplot=zBp{iter};
-            plot3(testpoints(iter+1,1),testpoints(iter+1,2),zplot(xBp==newpt(1)&yBp==newpt(2)),'LineStyle','none','MarkerSize',5,'Marker','*', ...
-                'MarkerEdgeColor','red','LineWidth',2);
+            plot3(testpoints(iter+1,1),testpoints(iter+1,2),...
+                predict(gprMdlB,table(testpoints(iter,1),testpoints(iter,1),'VariableNames',{'x','y'})),...
+                'LineStyle','none','LineWidth',2,...
+                'MarkerSize',5,'Marker','*','MarkerEdgeColor','red');
         end
         % Mean Surface
         surf(xBp,yBp,zBp{iter},plotabsError{iter},'LineStyle','none');
@@ -368,8 +369,8 @@ elseif method==2 || method==3
         ylabel('y (mm)')
         zlabel('z (mm)')
         axis equal
-        axis([-30 30 -30 30 0 20])
-        view(3)
+        axis([x_min x_max y_min y_max 0 20])
+        view(2)
         e=colorbar;
         e.Label.String='Absolute Error (mm)';
         clim([0 cmax])
@@ -583,14 +584,17 @@ if method == 1
 elseif method == 2 || method == 3
     pts=n:m;
 end
-axvec=[min(pts) max(pts) 1e-6 1e2];
+errmat=[table2array(modelPerformance.Train),table2array(modelPerformance.Test),table2array(modelPerformance.CV),modelPerformance.MaxCIWidth];
+errmax=10^ceil(log10(max(errmat(errmat~=0),[],'all')));
+errmin=10^floor(log10(min(errmat(errmat~=0),[],'all')));
+axvec=[min(pts) max(pts) errmin errmax];
 plot(pts,(modelPerformance.Test.MaxAE(n:m)),'Color',[0.8500 0.3250 0.0980],'LineStyle','-','LineWidth',2)
 plot(pts,(modelPerformance.Train.MaxAE(n:m)),'Color',[0.8500 0.3250 0.0980],'LineStyle','--','LineWidth',2)
 plot(pts,(modelPerformance.CV.MaxAE(n:m)),'Color',[0.8500 0.3250 0.0980],'LineStyle',':','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
-legend('MaxAE_{test}','MaxAE_{train}','MaxAE_{LOOCV}') 
-ylabel('Maximum Absolute Error (mm)')
+legend('MaxAE_{test}','MaxAE_{train}','MaxAE_{CV}','Location','southoutside','Orientation','horizontal') 
+ylabel({'Maximum Absolute Error','(mm)'})
 axis(axvec)
 
 subplot(2,2,2)
@@ -600,8 +604,8 @@ plot(pts,(modelPerformance.Train.MAE(n:m)),'Color',[0.9290 0.6940 0.1250],'LineS
 plot(pts,(modelPerformance.CV.MAE(n:m)),'Color',[0.9290 0.6940 0.1250],'LineStyle',':','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
-legend('MAE_{test}','MAE_{train}','MAE_{LOOCV}') 
-ylabel('Mean Absolute Error (mm)')
+legend('MAE_{test}','MAE_{train}','MAE_{CV}','Location','southoutside','Orientation','horizontal') 
+ylabel({'Mean Absolute Error','(mm)'})
 axis(axvec)
 
 subplot(2,2,3)
@@ -611,8 +615,8 @@ plot(pts,(modelPerformance.Train.RMSE(n:m)),'Color',[0.4940 0.1840 0.5560],'Line
 plot(pts,(modelPerformance.CV.RMSE(n:m)),'Color',[0.4940 0.1840 0.5560],'LineStyle',':','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
-legend('RSME_{test}','RSME_{train}','RSME_{LOOCV}') 
-ylabel('Root Mean Square Error (mm)')
+legend('RSME_{test}','RSME_{train}','RSME_{CV}','Location','southoutside','Orientation','horizontal') 
+ylabel({'Root Mean Square Error', '(mm)'})
 axis(axvec)
 
 subplot(2,2,4)
@@ -620,9 +624,12 @@ hold on
 plot(pts,(modelPerformance.MaxCIWidth(n:m)),'Color',[0.3010 0.7450 0.9330],'LineStyle','-','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
-legend('Maximum CI Width') 
-ylabel('Maximum 90% Confidence Interval Width (mm)')
+legend('Maximum CI Width','Location','southoutside','Orientation','horizontal') 
+ylabel({'Maximum 90% Confidence', 'Interval Width (mm)'})
 axis(axvec)
+if method==1
+    text(10^mean(log10(axvec(1:2))),10^mean(log10(axvec(3:4))),'N/A','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',30)
+end
 
 % plot(pts,(modelPerformance.Test.TotAE(n:m)),'Color',[0 0.4470 0.7410],'LineStyle','-','LineWidth',2)
 % plot(pts,(modelPerformance.Train.TotAE(n:m)),'Color',[0 0.4470 0.7410],'LineStyle','--','LineWidth',2)
@@ -661,8 +668,8 @@ plot(pts,(modelPerformance.MaxCIWidth(n:m)),'Color',[0.3010 0.7450 0.9330],'Line
 set(gca,'YScale','log')
 set(gca,'XScale','log')
 axis(axvec)
-legend('MaxAE_{test}','MaxAE_{train}','MaxAE_{LOOCV}','MAE_{test}','MAE_{train}','MAE_{LOOCV}',...
-    'RSME_{test}','RSME_{train}','RSME_{LOOCV}','Maximum CI Width','NumColumns',4) 
+legend('MaxAE_{test}','MaxAE_{train}','MaxAE_{CV}','MAE_{test}','MAE_{train}','MAE_{CV}',...
+    'RSME_{test}','RSME_{train}','RSME_{CV}','Maximum CI Width','NumColumns',4,'Location','southoutside') 
 xlabel('Number of Points (n)')
 ylabel('Metric Value (mm)')
 title('Model Performance Evaluation')
