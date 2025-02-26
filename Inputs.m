@@ -4,7 +4,7 @@
 
 %% Inputs
 % Plotting settings
-res_s = 600; % Resolution of Plotted Surfaces (number of points in one direction)
+res_s = 500; % Resolution of Plotted Surfaces (number of points in one direction)
 res_c = res_s^2; % Resolution of plotted curves
 x_lim = [-30 30]; % Range of x
 y_lim = [-30 30]; % Range of y
@@ -28,7 +28,7 @@ if method==1
 elseif method==2 || method==3
     n=13; % Number of points to sample before starting Bayesian Optimization 
     % ^(DO NOT CHANGE)
-    m=200; % Final number of points for Bayseian Optimization
+    m=50; % Final number of points for Bayseian Optimization
     A=@IVR2; % Aquisition Function to use
 else
     disp('Invalid Method Number')

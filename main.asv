@@ -348,9 +348,8 @@ elseif method==2 || method==3
         hold on
         % Test points on Surface B
         if iter~=m
-            zplot=zBp{iter};
             plot3(testpoints(iter+1,1),testpoints(iter+1,2),...
-                predict(gprMdlB,table(testpoints(iter,1),testpoints(iter,1),'VariableNames',{'x','y'})),...
+                predict(gprMdlB,table(testpoints(iter+1,1),testpoints(iter+1,1),'VariableNames',{'x','y'})),...
                 'LineStyle','none','LineWidth',2,...
                 'MarkerSize',5,'Marker','*','MarkerEdgeColor','red');
         end
@@ -370,7 +369,7 @@ elseif method==2 || method==3
         zlabel('z (mm)')
         axis equal
         axis([x_min x_max y_min y_max 0 20])
-        view(2)
+        view(3)
         e=colorbar;
         e.Label.String='Absolute Error (mm)';
         clim([0 cmax])
@@ -675,6 +674,6 @@ ylabel('Metric Value (mm)')
 title('Model Performance Evaluation')
 fontsize(gcf, scale=1.5)
 
-if savedata
+if savedata % NOT ALL THE DATA
 save(strcat(fname,'.mat'))
 end
