@@ -22,7 +22,7 @@ function J=IVRfmincon(x,gpr)
     prediction=table(x(1), x(2),'VariableNames',{'x','y'});
     [~,zBpsd,~] = predict(gpr,prediction);    
     kfcn = gpr.Impl.Kernel.makeKernelAsFunctionOfXNXM(gpr.Impl.ThetaHat);
-    f=@(a,b)reshape(kfcn(x,[reshape(a,[],1),reshape(b,[],1)]),size(a,1),size(a,2));
+    f=@(a,b)reshape(kfcn(x,[reshape(a,[],1),reshape(b,[],1)]).^2,size(a,1),size(a,2));
     intval=integral2(f,-999,999,-999,999);
     J = zBpsd^(-2)*intval;
 end

@@ -130,7 +130,7 @@ Test = table(zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'MaxAE','MAE','RM
 modelPerformance=table(Train, CV, Test, zeros(m,1),'VariableNames',{'Train','CV','Test','MaxCIWidth'});
 cvtimes=zeros(m,1);
 % Create a figure to plot too
-if method~=1 && savedata==true
+if method~=1 || savedata==true
 f0=figure('Position',[0 0 1000 600]);
 end
 

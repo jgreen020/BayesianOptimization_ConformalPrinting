@@ -6,7 +6,7 @@ function newpt=IVR(prediction,tested,gpr)
     arr=table2array(prediction);
     intval=zeros(n,1);
     for i=1:n 
-        f=@(x,y)reshape(kfcn(arr(i,:),[reshape(x,[],1),reshape(y,[],1)]),size(x,1),size(x,2));
+        f=@(x,y)reshape(kfcn(arr(i,:),[reshape(x,[],1),reshape(y,[],1)]).^2,size(x,1),size(x,2));
         intval(i)=integral2(f,-999,999,-999,999);
     end
     vals = zBpsd.^(-2).*intval;

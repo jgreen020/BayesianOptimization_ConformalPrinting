@@ -4,7 +4,7 @@
 
 %% Inputs
 % Plotting settings
-res_s = 150; % Resolution of Plotted Surfaces (number of points in one direction)
+res_s = 600; % Resolution of Plotted Surfaces (number of points in one direction)
 res_c = res_s^2; % Resolution of plotted curves
 x_lim = [-30 30]; % Range of x
 y_lim = [-30 30]; % Range of y
@@ -16,7 +16,7 @@ SurfB='Surf1a.csv'; % Name of the file containing the CT scan data
 Curve=@ArchSpiral; % Curve Parameterizaion, Inputs: t (scalar or vector in [0,1]), Outputs: u,v (scalars or vectors representing a point in U)
 
 % Surface Fitting Settings
-method=1; % Which surface fitting method to use. 
+method=2; % Which surface fitting method to use. 
           % 1) Bézier Surface Fitting
           % 2) Naive Bayesian Optimization
           % 3) Bayesian Optimization with prior trained on SurfA
