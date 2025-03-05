@@ -14,8 +14,16 @@ starttime=string(datetime('now','Format','yyyyMMdd_HHmmss'));
 
 %% Inputs
 Inputs
-fname=strcat(fullfile(pwd,'/Data'),'/Results/',starttime,'_',nameA,'_',nameB,'_','M',num2str(method)); % Filename to write to
+[dataA, fA, nameA]=importCTdata(SurfA,y_lim,x_lim,pad);
+[dataB, fB, nameB]=importCTdata(SurfB,y_lim,x_lim,pad);
+if doaprint; type='real'; else; type='sim'; end
+fname0=strcat(starttime,'_',nameA,'_',nameB,'_','M',num2str(method),'_',type);
+fname=strcat(fullfile(pwd,'/Data'),'/Results/',fname0,'/',fname0); % Filename to write to
 
+if savedata
+    mkdir('./Data/Results', fname0)
+    addpath(genpath(fullfile(pwd)))
+end
 %% Calculations
 % range
 x_min = min(x_lim); x_max = max(x_lim); x_rng=x_max-x_min;
@@ -131,7 +139,7 @@ modelPerformance=table(Train, CV, Test, zeros(m,1),'VariableNames',{'Train','CV'
 cvtimes=zeros(m,1);
 % Create a figure to plot too
 if method~=1 || savedata==true
-f0=figure('Position',[0 0 1000 600]);
+f(1)=figure('Position',[0 0 1000 600]);
 end
 
 disp('Entering the main loop')
@@ -216,7 +224,7 @@ if method==1
             
             if savedata
             % Plot surface to make animation
-            figure(f0)
+            figure(f(1))
             % Test points on Surface B
             plot3(initialsampling{iter}.testpoints(:,1),initialsampling{iter}.testpoints(:,2),initialsampling{iter}.testpoints(:,3),'LineStyle','none','MarkerSize',5,'Marker','o', ...
             'MarkerEdgeColor','white','MarkerFaceColor','black','LineWidth',2);
@@ -236,19 +244,15 @@ if method==1
             title({strcat('Bézier Surface Fit, n=m=',num2str(iter))}) 
             legend('Tested Points','Bézier Surface Prediction','Orientation','horizontal','Location','southoutside')
             colormap('viridis')
-            fontsize(f0, scale=2)
+            fontsize(f(1), scale=2)
             hold off
             drawnow
 
             %Save frame to an image stack
-            frame = getframe(f0);
+            frame = getframe(f(1));
             im = frame2im(frame);
             [imind,cm] = rgb2ind(im,256);
-            if iter == n
-                imwrite(imind,cm,strcat(fname,'.tiff'),'tiff');
-            else
-                imwrite(imind,cm,strcat(fname,'.tiff'),'tiff','WriteMode','append');
-            end
+            imwrite(imind,cm,strcat(fname,'.tiff'),'tiff','WriteMode','append');
             end
         end
         iter=max(iter);
@@ -337,11 +341,20 @@ elseif method==2 || method==3
         testabsError = abs(testError);
 
         % Calculate metrics
-        calcModelPerformance
-        
+        modelPerformance.Train.MaxAE(iter) = max(trainabsError);
+        modelPerformance.Train.MAE(iter) = mean(trainabsError);
+        modelPerformance.Train.RMSE(iter) = std(trainError);
+        modelPerformance.CV.MaxAE(iter) = max(cvabsError);
+        modelPerformance.CV.MAE(iter) = mean(cvabsError);
+        modelPerformance.CV.RMSE(iter) = std(cvError);
+        modelPerformance.Test.MaxAE(iter) = max(testabsError);
+        modelPerformance.Test.MAE(iter) = mean(testabsError);
+        modelPerformance.Test.RMSE(iter) = std(testError);
+        modelPerformance.MaxCIWidth(iter) = max(abs((zBpCI(:,2)-zBpCI(:,1))/2));
+
         % Record and display information
         % Plot surface to make animation
-        figure(f0)
+        figure(f(1))
         % Test points on Surface B
         plot3(testpoints(1:iter,1),testpoints(1:iter,2),testpoints(1:iter,3),'LineStyle','none','MarkerSize',5,'Marker','o', ...
         'MarkerEdgeColor','white','MarkerFaceColor','black','LineWidth',2);
@@ -380,17 +393,18 @@ elseif method==2 || method==3
         legend('Tested Points','Mean GPR Prediction','99% CI','Orientation','horizontal','Location','southoutside')
         end
         colormap('viridis')
-        fontsize(f0, scale=2)
+        fontsize(f(1), scale=2)
         hold off
         drawnow
 
         
         %Save frame to an image stack 
         if savedata
-        frame = getframe(f0);
+        frame = getframe(f(1));
         im = frame2im(frame);
         [imind,cm] = rgb2ind(im,256);
         imwrite(imind,cm,strcat(fname,'.tiff'),'tiff','WriteMode','append');
+        clear im imind cm frame
         end
 
         t(iter)=toc;
@@ -400,6 +414,7 @@ elseif method==2 || method==3
     plotabsError=plotabsError{iter};
     zBpCImx=zBpCImx{iter}; 
     zBpCImn=zBpCImn{iter};
+    clear trainError trainabsError cvabsError testdata testError testabsError
 end
 
 %% Curve Mapping
@@ -430,15 +445,15 @@ end
 %% Plotting
 close all
 
-f1=figure('WindowStyle','docked');
-f2=figure('WindowStyle','docked');
-f3=figure('WindowStyle','docked');
-f4=figure('WindowStyle','docked');
-f5=figure('WindowStyle','docked');
-f6=figure('WindowStyle','docked');
+f(1)=figure('WindowStyle','docked');
+f(2)=figure('WindowStyle','docked');
+f(3)=figure('WindowStyle','docked');
+f(4)=figure('WindowStyle','docked');
+f(5)=figure('WindowStyle','docked');
+f(6)=figure('WindowStyle','docked');
 
 % Figure 1: Plot of Surface A, Surface B, the training data
-figure(f1)
+figure(f(1))
 hold on
 % Surface A
 surf(x,y,zA,'FaceAlpha',.1,'FaceColor',[1 .5 0],'EdgeColor',[1 .5 0],'LineStyle','none');
@@ -462,7 +477,7 @@ fontsize(gcf, scale=1.5)
 
 
 % Figure 2: Plot of predicted surface and heatmap of conidence interval width
-figure(f2)
+figure(f(2))
 if method == 2 || method == 3
     subplot(2,1,1)
 end
@@ -512,7 +527,7 @@ fontsize(gcf, scale=1.5) % Note that fontsize increase affects entie figure
 
 
 % Figure 3: Printability Evaluation
-figure(f3)
+figure(f(3))
 if method == 2 || method == 3
     subplot(2,1,1)
 end
@@ -551,7 +566,7 @@ end
 fontsize(gcf, scale=1.5)
 
 % Figure 4: Presentation Plots
-figure(f4)
+figure(f(4))
 hold on
 % Mean Surface
 surf(xBp,yBp,zBp,plotabsError,'LineStyle','none');
@@ -575,7 +590,7 @@ colormap('viridis')
 fontsize(gcf, scale=1.5)
 
 % Figure 5 Error Metric Plots
-figure(f5)
+figure(f(5))
 subplot(2,2,1)
 hold on
 if method == 1
@@ -646,7 +661,7 @@ title(han,'Model Performance Evaluation')
 fontsize(gcf, scale=1.5)
 
 % Figure 6 Error Metric Plot
-figure(f6)
+figure(f(6))
 hold on
 plot(pts,(modelPerformance.Test.MaxAE(n:m)),'Color',[0.8500 0.3250 0.0980],'LineStyle','-','LineWidth',2)
 plot(pts,(modelPerformance.Train.MaxAE(n:m)),'Color',[0.8500 0.3250 0.0980],'LineStyle','--','LineWidth',2)
@@ -658,12 +673,6 @@ plot(pts,(modelPerformance.Test.RMSE(n:m)),'Color',[0.4940 0.1840 0.5560],'LineS
 plot(pts,(modelPerformance.Train.RMSE(n:m)),'Color',[0.4940 0.1840 0.5560],'LineStyle','--','LineWidth',2)
 plot(pts,(modelPerformance.CV.RMSE(n:m)),'Color',[0.4940 0.1840 0.5560],'LineStyle',':','LineWidth',2)
 plot(pts,(modelPerformance.MaxCIWidth(n:m)),'Color',[0.3010 0.7450 0.9330],'LineStyle','-','LineWidth',2)
-% plot(pts,(modelPerformance.Test.TotAE(n:m)),'Color',[0 0.4470 0.7410],'LineStyle','-','LineWidth',2)
-% plot(pts,(modelPerformance.Train.TotAE(n:m)),'Color',[0 0.4470 0.7410],'LineStyle','--','LineWidth',2)
-% plot(pts,(modelPerformance.CV.TotAE(n:m)),'Color',[0 0.4470 0.7410],'LineStyle',':','LineWidth',2)
-% plot(pts,(modelPerformance.Test.R2(n:m)),'Color',[0.4660 0.6740 0.1880],'LineStyle','-','LineWidth',2)
-% plot(n:m,(modelPerformance.Train.R2(n:m)),'Color',[0.4660 0.6740 0.1880],'LineStyle','--','LineWidth',2)
-% plot(pts,(modelPerformance.CV.R2(n:m)),'Color',[0.4660 0.6740 0.1880],'LineStyle',':','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
 axis(axvec)
@@ -674,6 +683,15 @@ ylabel('Metric Value (mm)')
 title('Model Performance Evaluation')
 fontsize(gcf, scale=1.5)
 
-if savedata % NOT ALL THE DATA
-save(strcat(fname,'.mat'))
+if savedata 
+    savefig(f,strcat(fname,'.fig'))
+    for figiter=1:max(size(f))
+        exportgraphics(f(figiter),strcat(fname,"_f",num2str(figiter),".eps"))
+        exportgraphics(f(figiter),strcat(fname,"_f",num2str(figiter),".png"))
+    end
+    clear f dataA dataB fA fB; close all;
+    save(strcat(fname,'.mat'))
+    if ~exist('bulk','var')
+        f=openfig(strcat(fname,'.fig'));
+    end
 end
