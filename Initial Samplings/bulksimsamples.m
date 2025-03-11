@@ -1,6 +1,10 @@
-surfnames={'Surf1a.csv','Surf1b.csv','Surf1c.csv',...
-    'Surf2a.csv','Surf2b.csv','Surf2c.csv',...
-    'Surf3a.csv','Surf3b.csv','Surf3c.csv'};
+% surfnames={'Surf1a.csv','Surf1b.csv','Surf1c.csv',...
+%     'Surf2a.csv','Surf2b.csv','Surf2c.csv',...
+%     'Surf3a.csv','Surf3b.csv','Surf3c.csv'};
+Inputs
+
+surfnames={'Surf3c_noise.csv'};
+
 bulk=1;
 for i=1:length(surfnames)
     method=1;

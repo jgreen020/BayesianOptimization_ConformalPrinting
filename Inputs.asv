@@ -14,11 +14,11 @@ if ~exist('bulk','var')
 
 % Surfaces and Curves
 SurfA='Surf3a.csv'; % Name of the file containing the CT scan data
-SurfB='Surf3c_noise.csv'; % Name of the file containing the CT scan data
+SurfB='Surf3c_holes.csv'; % Name of the file containing the CT scan data
 Curve=@ArchSpiral; % Curve Parameterizaion, Inputs: t (scalar or vector in [0,1]), Outputs: u,v (scalars or vectors representing a point in U)
 
 % Surface Fitting Settings
-method=2; % Which surface fitting method to use. 
+method=3; % Which surface fitting method to use. 
           % 1) Bézier Surface Fitting
           % 2) Naive Bayesian Optimization
           % 3) Bayesian Optimization with prior trained on SurfA
@@ -31,7 +31,7 @@ elseif method==2 || method==3
     n=13; % Number of points to sample before starting Bayesian Optimization 
     % ^(DO NOT CHANGE)
     m=100; % Final number of points for Bayseian Optimization
-    A=@A2; % Aquisition Function to use
+    A=@LCB; % Aquisition Function to use
 else
     disp('Invalid Method Number')
     return
