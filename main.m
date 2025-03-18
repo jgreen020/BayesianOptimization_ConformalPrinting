@@ -1,52 +1,131 @@
-%% Simulation and implementation of Bezier Surface Fitting (Jafari and Gans), Vanilla BO, and BO with a CT scan prior
-%% Jake Colwell and Zyaire Howard
-%% January 15, 2025
+%% main.m
+% Authors: Jake Colwell and Zyaire Howard
+% Created: January 15, 2025
+% Last Major Modification: March 14, 2025
+% Fit a model of a surface to a sparse point cloud and generate a path to be printed
+% Accompanies the paper: (INSERT DOI AFTER PUBLISHING)
+% Reccomended toolboxes: Parallel Computing Toolbox
 
-%% Setup 
-% Delete all figures, clear workspace and command window
-close all;clear;clc;
-% Add all current folders to the path
-addpath(genpath(fullfile(pwd)))
+% This is a massive Frankenstein's monster of code that combines 3 different
+% surface mapping methods including:
+%   (1) Fitting Bezier surfaces (based on methods from [1])
+%   (2) Bayesian Optimization with explorative aquistion functions and 
+%       default priors (based on methods from [2] and functions from [3])
+%   (3) Bayesian Optimization with priors trained on CT scanned data of 
+%       other surfaces (expanding upon (2))
+% as well as settings to enable/disable certain functions of the code:
+%   (1) doaprint: Controls if the current run to be simulated using the CT
+%       scan data (False) or if this run is to use data aquired from TCS
+%   (2) savedata: Controls if the plots and workspace of the run are to be 
+%       saved to Data/Results (True) or not (False). When true, all
+%       variables from the workspace except figures and loaded data will be
+%       saved to a .m file, all figures will be saved as .fig, .png, and .eps, 
+%       the visual plots of the optimization will be saved to .tiff stacks,
+%       and the command window log will be saved to a .txt file
+%   (3) bulk: is not set directly in Inputs.m or main.m, but can be created
+%       in an external script in order to allow the user to run main.m or 
+%       Inputs.m inside of a loop without clearing important variables. This
+%       allows scripts to be created that can loop these scripts over different 
+%       parameters while preserving the ability to run them as individual scripts.
+%       See bulksimstudy.m for an example of such a script.
+% which results in a massive and confusing series of if statements. This
+% worked well for our precise purposes in this study, but if you are trying
+% to adapt this work for yourself, I wish you luck.
+
+% Before running this script you must:
+%   (1) Set desired settings in Inputs.m
+%   (2) Ensure data for the surface(s) exists in '/Data/CT Scans'
+%   (3) Enure an initial sampling for your desired settings exists in
+%       '/Initial Samplings'. If it does not, then run generateInitialSamplings.m
+%   (4) If using method 3, ensure a trained prior exists in '/TrainedPriors'. 
+%       If it does not, then run trainPriors.m
+
+%% Setup and Inputs
+% Close all figures, clear command window
+close all;clc
+% Clear the workspace, but if calling from an external script, 
+% do not clear some important variables
+if ~exist('bulk','var')
+    clear
+    % Add all current folders to the path
+    addpath(genpath(fullfile(pwd)))
+else
+    clearvars -except bulk f fA fB dataA dataB nameA nameB m n ...
+        Curve doaprint savedata surfnames SurfA SurfB AFs A method 
+end
+
 % Start a timer
-tic
+timer=tic;
+
 % Record the start time to a string to use in the filename
 starttime=string(datetime('now','Format','yyyyMMdd_HHmmss'));
 
-%% Inputs
+% Disable warnings about gprMdlCV in parfor 
+warning('off','all')
+
+% Run the script containing input settings (Inputs.m)
 Inputs
-[dataA, fA, nameA]=importCTdata(SurfA,y_lim,x_lim,pad);
-[dataB, fB, nameB]=importCTdata(SurfB,y_lim,x_lim,pad);
+
+% Find the name of Surface B to use in filenames
+[~, nameB,~]=fileparts(SurfB);
+
+% Create a filename to write all the data with
 if doaprint; type='real'; else; type='sim'; end
-fname0=strcat(starttime,'_',nameA,'_',nameB,'_','M',num2str(method),'_',type);
+if method==1
+    fname0=strcat(starttime,'_',nameB,'_','M',num2str(method),'_',type);
+elseif method==2
+    fname0=strcat(starttime,'_',nameB,'_','M',num2str(method),'_',func2str(A),'_',type);
+elseif method==3
+    [~, nameA,~]=fileparts(SurfA);
+    fname0=strcat(starttime,'_',nameA,'_',nameB,'_','M',num2str(method),'_',func2str(A),'_',type);
+else
+end
 fname=strcat(fullfile(pwd,'/Data'),'/Results/',fname0,'/',fname0); % Filename to write to
 
+% If saving data, make a new folder with the filename and add it to the path
 if savedata
     mkdir('./Data/Results', fname0)
-    addpath(genpath(fullfile(pwd)))
+    % Enable logging of the command window to save as a .txt file
+    diary(strcat(fname,'.txt'))
 end
+
+% Import CT scan data, but only if not doing a bulk run to save time
+if ~exist('bulk','var')
+fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tImporting Surface B ...\n'])
+[dataB, fB, nameB]=importCTdata(SurfB,y_lim,x_lim,pad);
+if method==3
+fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tImporting Surface A ...\n'])
+[dataA, fA, nameA]=importCTdata(SurfA,y_lim,x_lim,pad);
+end
+end
+
 %% Calculations
-% range
+fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tPerforming Initial Calculations ...\n'])
+
+% Break out the x and y mins and maxes for readability
 x_min = min(x_lim); x_max = max(x_lim); x_rng=x_max-x_min;
 y_min = min(y_lim); y_max = max(y_lim); y_rng=y_max-y_min;
+z_min = -10; z_max=20; z_rng=z_min-z_max;
 
-% Generating x and y vectors 
+% Generate high-resolution x and y vectors for surface plotting / prediction
 x=linspace(x_min+pad, x_max-pad, res_s);
 y=linspace(y_min+pad, y_max-pad, res_s);
 
-% Generating a list of every (x,y) coordinate
-[xd, yd]=meshgrid(x,y);
-xd=xd(:);
-yd=yd(:);
-xBp=reshape(xd,res_s,res_s);
-yBp=reshape(yd,res_s,res_s);
-
+% Generate the high-resolution grid of these (x,y) points
+[xBp, yBp]=meshgrid(x,y);
+% Reform them into lists of x and y coordinates
+xd=xBp(:);
+yd=yBp(:);
 
 % Interpolate Z-Values at the specified resolution
-zA=reshape(fA([xd,yd]),res_s,res_s);
+if method==3
+    zA=reshape(fA([xd,yd]),res_s,res_s);
+end
 zB=reshape(fB([xd,yd]),res_s,res_s);
 zBl=zB(:);
 
 % Call Initial Sampling generated with 'generateInitialSamplings.m'
+% Create the filename that matches the current settings
 if method==1
     type=1;
 elseif method==2 || method==3
@@ -58,48 +137,42 @@ else
     word='CT';
 end
 
+% This is not important, it is just to make Matlab happy
 t=zeros(m,1); % These values will get overwritten when the data is loaded
 testpoints=zeros(m,1); % ... But Matlab throws warnings if these aren't pre-allocated
 
+% Load the initial sampling
 load(strcat(fullfile(pwd,'/Initial Samplings'),'/',word,'_t',num2str(type),...
     '_',nameB,'_n',num2str(n),'.mat'))
+
+% Check that all the intial sampling settings match the current settings
 if all(x_lim == x_lim_in) && all(y_lim == y_lim_in) && (pad == pad_in)
-    disp('Initial sampling successfully recovered.')
+    fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\t  ... Initial sampling successfully recovered.\n'])
 else
     disp(['ERROR: Inputs do not match saved sampling. Either create a new' ...
         ' sampling with these inputs or change your inputs to match the initial sampling.'])
     return
 end
 
-if method==1
-    if ~doaprint
-        if m>n
-            iter=n:m;
-        elseif m<n
-            disp('Error: Final number of points (m) must be greater than or equal to n')
-            return
-        else 
-            iter = m;
-        end
-    elseif doaprint
-        iter=n;
-    end
-elseif method==2 || method==3
-    % Determine how many iterations the user specified, m will be the variable for the for loop
-    if m>n
-       iter=n:m;
+% Generate the iteration vector for the main for loop, ensuring that the 
+% inputted m and n values make sense
+if doaprint && method==1
+    % If doing a print with Method 1, it should only run once
+    iter=n;
+else
+    if m>=n
+        iter=n:m;
     elseif m<n
-       disp('Error: Final number of points (m) must be greater than or equal to n')
-       return
-    else 
-       iter = m;
+        disp('Error: Final number of points (m) must be greater than or equal to n')
+        return
     end
 end
 
 % Perform pre-loop actions like table initialization, that vary by method
-
 if method==1
+    % Make a cell array to store trained models at each iteration
     bezMdls=cell(m,1);
+    % Create inputs and settings for fmincon
     A=[];B=[];Aeq=[];Beq=[];lb=[];ub=[];nonlin=[];
     opts=optimoptions("fmincon",...
         "Algorithm","interior-point",...
@@ -108,159 +181,166 @@ if method==1
         "OptimalityTolerance",0.00001,...
         'Display','none');
 elseif method==2
+    % Make a cell arrays to store trained GPR models and predictions at each iteration
     gprMdls=cell(m,1);
     zBp=cell(m,1);
     zBpCImx=zBp;
     zBpCImn=zBp;
     plotabsError=zBp;
 elseif method==3
+    % Make a cell arrays to store trained GPR models and predictions at each iteration
     gprMdls=cell(m,1);
     zBp=cell(m,1);
     zBpCImx=zBp;
     zBpCImn=zBp;
     plotabsError=zBp;
-    % Load a previously trained GPR to serve as a Prior
+
+    % Load a previously trained GPR to serve as a prior and validate settings
     load(strcat(fullfile(pwd,'/TrainedPriors'),'/',nameA,'.mat'))
-    if all(x_lim == x_lim_pri) && all(y_lim == y_lim_pri) && (pad == pad_pri)
-        %Sick
-    else
+    if ~(all(x_lim == x_lim_pri) && all(y_lim == y_lim_pri) && (pad == pad_pri))
         disp(['ERROR: Inputs do not match saved prior. Either create a new' ...
             ' prior with these inputs or change your inputs to match the initial sampling.'])
         return
     end
+
+    % Load the prior model into the cell array as the (n-1)th model
     gprMdls{n-1}=gprMdlA;
 end
 
-% Initialize tables for the loop
+% Initialize tables to store model performance metrics at each iteration
 Train = table(zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'MaxAE','MAE','RMSE'});
 CV = table(zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'MaxAE','MAE','RMSE'});
 Test = table(zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'MaxAE','MAE','RMSE'});
 modelPerformance=table(Train, CV, Test, zeros(m,1),'VariableNames',{'Train','CV','Test','MaxCIWidth'});
-cvtimes=zeros(m,1);
+
 % Create a figure to plot too
 if method~=1 || savedata==true
-f(1)=figure('Position',[0 0 1000 600]);
+f(1)=figure('units','normal','position',[0 .5 .6 .5]);
 end
 
-disp('Entering the main loop')
+% Enter the main loop
+fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tEntering the main loop ...\n'])
 if method==1
-    if doaprint
-        % Jafari and Gans w/ TCS for one number
-        disp('ERROR: Printing Not Yet Implemented')
-        return
-    else
-        parfor iter=iter
-            fprintf('Calculating Bézier Surface for iter=%i\n',iter)
-            % Jafari and Gans simulation for iter=n:1:m
-            initialsampling{iter} = load(strcat(fullfile(pwd,'/Initial Samplings'),'/',word,'_t',num2str(type),...
-                '_',nameB,'_n',num2str(iter),'.mat'));
-            if all(x_lim == initialsampling{iter}.x_lim_in) && all(y_lim == initialsampling{iter}.y_lim_in) && (pad == initialsampling{iter}.pad_in)
-            else
-                disp(['ERROR: Inputs do not match saved sampling. Either create a new' ...
-                    ' sampling with these inputs or change your inputs to match the initial sampling.'])
-            end
-            
-            P_i=reshape(initialsampling{iter}.testpoints,[iter, iter, 3]);
-            u=linspace(0,1,iter);
-            v=linspace(0,1,iter);
-            fun=@(P)cost(u,v,P,P_i);
-            [P_o{iter},J]=fmincon(fun,P_i,A,B,Aeq,Beq,lb,ub,nonlin,opts);
+    parfor iter=iter
+        fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\t  ... Calculating Bézier Surface for iter=%i\n'],iter)
+        
+        % Jafari and Gans simulation for iter=n:1:m
+        initialsampling{iter} = load(strcat(fullfile(pwd,'/Initial Samplings')...
+            ,'/',word,'_t',num2str(type),'_',nameB,'_n',num2str(iter),'.mat'));
+        if ~(all(x_lim == initialsampling{iter}.x_lim_in) && all(y_lim == initialsampling{iter}.y_lim_in) && (pad == initialsampling{iter}.pad_in))
+            disp(['ERROR: Inputs do not match saved sampling. Either create a new' ...
+                ' sampling with these inputs or change your inputs to match the initial sampling.'])
+        end
+        
+        P_i=reshape(initialsampling{iter}.testpoints,[iter, iter, 3]);
+        u=linspace(0,1,iter);
+        v=linspace(0,1,iter);
+        fun=@(P)cost(u,v,P,P_i);
+        [P_o{iter},J]=fmincon(fun,P_i,A,B,Aeq,Beq,lb,ub,nonlin,opts);
 
-            % Predict surface at higher resolution
-            train_pred=bezierSurf(u,v,P_o{iter});
-            test=bezierSurf(rescale(x),rescale(y),P_o{iter});
-            fB_p=scatteredInterpolant(test(:,1:2),test(:,3),'natural');
-            zBp{iter}=reshape(test(:,3),res_s,res_s);
+        % Predict surface at higher resolution
+        train_pred=bezierSurf(u,v,P_o{iter});
+        test=bezierSurf(rescale(x),rescale(y),P_o{iter});
+        fB_p=scatteredInterpolant(test(:,1:2),test(:,3),'natural');
+        zBp{iter}=reshape(test(:,3),res_s,res_s);
 
-            % Bézier Cross-Validation
-            cvError=zeros(iter-2,iter);
-            zBcv=zeros((iter-2)*2,iter);
-            index=1;
-            for i=2:iter-1
-                fprintf('Beginning Bézier Cross-Validation for iter=%i, i=%i\n',iter,i)
-                rows=setdiff(1:iter,i);
-                for j=[true false]
-                    if j
-                        fun=@(P)cost(u,v(rows),P,P_i(rows,:,:));
-                    else
-                        fun=@(P)cost(u(rows),v,P,P_i(:,rows,:));
-                    end
-                    [P_cv,J]=fmincon(fun,P_i,A,B,Aeq,Beq,lb,ub,nonlin,opts);
-                    SB_cv=bezierSurf(linspace(0,1,res_s),linspace(0,1,res_s),P_cv);
-                    fB_cv=scatteredInterpolant(SB_cv(:,1:2),SB_cv(:,3),'natural');
-                    if j
-                        SB_cv2=bezierSurf(u,v(i),P_o{iter});
-                    else
-                        SB_cv2=bezierSurf(u(i),v,P_o{iter});
-                    end
-                    zBcv(index,:)=fB_cv(SB_cv2(:,1:2));
-                    cvError(index,:)=SB_cv2(:,3)'-zBcv(index,:);
-                    index=index+1;
+        % Bézier Cross-Validation
+        cvError=zeros(iter-2,iter);
+        zBcv=zeros((iter-2)*2,iter);
+        index=1;
+        for i=2:iter-1
+            fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\t  ... Beginning Bézier Cross-Validation for iter=%i, i=%i\n'],iter,i)
+            rows=setdiff(1:iter,i);
+            for j=[true false]
+                if j
+                    fun=@(P)cost(u,v(rows),P,P_i(rows,:,:));
+                else
+                    fun=@(P)cost(u(rows),v,P,P_i(:,rows,:));
                 end
-            end
-
-            % Error Calculation
-            trainError = fB_p(initialsampling{iter}.testpoints(:,1:2))-initialsampling{iter}.testpoints(:,3);
-            trainabsError = abs(trainError);
-            cvError=cvError(:);
-            cvabsError = abs(cvError);
-            alldata=dataB; % This assignment avoids a warning about broadcast variable
-            testdata=alldata(setdiff(1:size(dataB,1),initialsampling{iter}.initindex),:);
-            testError = fB_p(table2array(testdata(:,{'x','y'})))-testdata.z;
-            testabsError = abs(testError);
-            plotabsError{iter}=abs(fB(xBp,yBp)-zBp{iter});
-            
-            % Calculate Metrics
-            modelPerformance(iter,:).Train.MaxAE = max(trainabsError);
-            modelPerformance(iter,:).Train.MAE = mean(trainabsError);
-            modelPerformance(iter,:).Train.RMSE = std(trainError);
-            modelPerformance(iter,:).CV.MaxAE = max(cvabsError);
-            modelPerformance(iter,:).CV.MAE = mean(cvabsError);
-            modelPerformance(iter,:).CV.RMSE = std(cvError);
-            modelPerformance(iter,:).Test.MaxAE = max(testabsError);
-            modelPerformance(iter,:).Test.MAE = mean(testabsError);
-            modelPerformance(iter,:).Test.RMSE = std(testError);
-            modelPerformance(iter,:).MaxCIWidth = NaN;
-            
-            if savedata
-            % Plot surface to make animation
-            figure(f(1))
-            % Test points on Surface B
-            plot3(initialsampling{iter}.testpoints(:,1),initialsampling{iter}.testpoints(:,2),initialsampling{iter}.testpoints(:,3),'LineStyle','none','MarkerSize',5,'Marker','o', ...
-            'MarkerEdgeColor','white','MarkerFaceColor','black','LineWidth',2);
-            hold on
-            % Mean Surface
-            surf(xBp,yBp,zBp{iter},reshape(plotabsError{iter},res_s,res_s),'LineStyle','none');
-            % Make plot pretty 
-            xlabel('x (mm)')
-            ylabel('y (mm)')
-            zlabel('z (mm)')
-            axis equal
-            axis([x_min x_max y_min y_max 0 20])
-            view(3)
-            e=colorbar;
-            e.Label.String='Absolute Error (mm)';
-            clim([0 cmax])
-            title({strcat('Bézier Surface Fit, n=m=',num2str(iter))}) 
-            legend('Tested Points','Bézier Surface Prediction','Orientation','horizontal','Location','southoutside')
-            colormap('viridis')
-            fontsize(f(1), scale=2)
-            hold off
-            drawnow
-
-            %Save frame to an image stack
-            frame = getframe(f(1));
-            im = frame2im(frame);
-            [imind,cm] = rgb2ind(im,256);
-            imwrite(imind,cm,strcat(fname,'.tiff'),'tiff','WriteMode','append');
+                [P_cv,J]=fmincon(fun,P_i,A,B,Aeq,Beq,lb,ub,nonlin,opts);
+                SB_cv=bezierSurf(linspace(0,1,res_s),linspace(0,1,res_s),P_cv);
+                fB_cv=scatteredInterpolant(SB_cv(:,1:2),SB_cv(:,3),'natural');
+                if j
+                    SB_cv2=bezierSurf(u,v(i),P_o{iter});
+                else
+                    SB_cv2=bezierSurf(u(i),v,P_o{iter});
+                end
+                zBcv(index,:)=fB_cv(SB_cv2(:,1:2));
+                cvError(index,:)=SB_cv2(:,3)'-zBcv(index,:);
+                index=index+1;
             end
         end
-        iter=max(iter);
-        zBp=zBp{iter};
-        plotabsError=plotabsError{iter};
-        P_o=P_o{iter};
-        testpoints=initialsampling{iter}.testpoints;
+
+        % Error Calculation
+        trainError = fB_p(initialsampling{iter}.testpoints(:,1:2))-initialsampling{iter}.testpoints(:,3);
+        trainabsError = abs(trainError);
+        cvError=cvError(:);
+        cvabsError = abs(cvError);
+        alldata=dataB; % This assignment avoids a warning about broadcast variable
+        testdata=alldata(setdiff(1:size(dataB,1),initialsampling{iter}.initindex),:);
+        testError = fB_p(table2array(testdata(:,{'x','y'})))-testdata.z;
+        testabsError = abs(testError);
+        plotabsError{iter}=abs(fB(xBp,yBp)-zBp{iter});
+        
+        % Calculate Metrics
+        modelPerformance(iter,:).Train.MaxAE = max(trainabsError);
+        modelPerformance(iter,:).Train.MAE = mean(trainabsError);
+        modelPerformance(iter,:).Train.RMSE = std(trainError);
+        modelPerformance(iter,:).CV.MaxAE = max(cvabsError);
+        modelPerformance(iter,:).CV.MAE = mean(cvabsError);
+        modelPerformance(iter,:).CV.RMSE = std(cvError);
+        modelPerformance(iter,:).Test.MaxAE = max(testabsError);
+        modelPerformance(iter,:).Test.MAE = mean(testabsError);
+        modelPerformance(iter,:).Test.RMSE = std(testError);
+        modelPerformance(iter,:).MaxCIWidth = NaN;
     end
+    for iter=iter
+        if savedata
+        % Plot surface to make animation
+        figure(f(1))
+        % Test points on Surface B
+        plot3(initialsampling{iter}.testpoints(:,1),initialsampling{iter}.testpoints(:,2),initialsampling{iter}.testpoints(:,3),'LineStyle','none','MarkerSize',5,'Marker','o', ...
+        'MarkerEdgeColor','white','MarkerFaceColor','black','LineWidth',2);
+        hold on
+        % Mean Surface
+        surf(xBp,yBp,zBp{iter},reshape(plotabsError{iter},res_s,res_s),'LineStyle','none');
+        % Make plot pretty 
+        xlabel('x (mm)')
+        ylabel('y (mm)')
+        zlabel('z (mm)')
+        axis equal
+        axis([x_min x_max y_min y_max z_min z_max])
+        view(3)
+        e=colorbar;
+        e.Label.String='Absolute Error (mm)';
+        clim([0 cmax])
+        title({strcat('Bézier Surface Fit, n=m=',num2str(iter))}) 
+        legend('Tested Points','Bézier Surface Prediction','Orientation','horizontal','Location','southoutside')
+        colormap('viridis')
+        fontsize(f(1), scale=2)
+        hold off
+        drawnow
+
+        %Save frame to an image stack
+        frame = getframe(f(1));
+        im = frame2im(frame);
+        [imind,cm] = rgb2ind(im,256);
+        imwrite(imind,cm,strcat(fname,'_view3.tiff'),'tiff','WriteMode','append');
+        
+        view(2)
+        set(legend(gca),'Orientation','vertical','Location','southwestoutside')
+        frame = getframe(f(1));
+        im = frame2im(frame);
+        [imind,cm] = rgb2ind(im,256);
+        imwrite(imind,cm,strcat(fname,'_view2.tiff'),'tiff','WriteMode','append');
+        clear im imind cm frame
+        end
+    end
+    iter=max(iter);
+    zBp=zBp{iter};
+    plotabsError=plotabsError{iter};
+    P_o=P_o{iter};
+    testpoints=initialsampling{iter}.testpoints;
 elseif method==2 || method==3
     % Main BO Loop 
     for iter=iter 
@@ -276,6 +356,7 @@ elseif method==2 || method==3
                 'Basis',gprMdlA.BasisFunction,...
                 'Beta',gprMdlA.Beta,...
                 'Sigma',gprMdlA.Sigma,...
+                'SigmaLowerBound',gprMdlA.Sigma-0.001,...
                 'Standardize',gprMdlA.ModelParameters.Standardize,...
                 'KernelFunction',gprMdlA.KernelFunction,...
                 'KernelParameters',gprMdlA.KernelInformation.KernelParameters);
@@ -295,7 +376,7 @@ elseif method==2 || method==3
             if doaprint
                 % TCS ON MRD
                 testpoints(iter+1,3)=mrdtcs(newpt(1), newpt(2));
-                t(iter)=toc;
+                t(iter)=toc(timer);
             else
                 testpoints(iter+1,:)=table2array(dataB(dsearchn(table2array(dataB(:,{'x','y'})),newpt),:));
             end
@@ -311,6 +392,7 @@ elseif method==2 || method==3
         cvError=zeros(iter,1);
         zBcv=zeros(iter,1);
         parfor i=1:iter
+            warning('off','all')
             mat=train;
             % Create a table of the training and test data
             train_cv=train((1:iter)~=i,:);
@@ -323,6 +405,7 @@ elseif method==2 || method==3
                     'Basis',gprMdlA.BasisFunction,...
                     'Beta',gprMdlA.Beta,...
                     'Sigma',gprMdlA.Sigma,...
+                    'SigmaLowerBound',gprMdlA.Sigma-0.001,...
                     'Standardize',gprMdlA.ModelParameters.Standardize,...
                     'KernelFunction',gprMdlA.KernelFunction,...
                     'KernelParameters',gprMdlA.KernelInformation.KernelParameters);
@@ -381,7 +464,7 @@ elseif method==2 || method==3
         ylabel('y (mm)')
         zlabel('z (mm)')
         axis equal
-        axis([x_min x_max y_min y_max 0 20])
+        axis([x_min x_max y_min y_max z_min z_max])
         view(3)
         e=colorbar;
         e.Label.String='Absolute Error (mm)';
@@ -403,12 +486,19 @@ elseif method==2 || method==3
         frame = getframe(f(1));
         im = frame2im(frame);
         [imind,cm] = rgb2ind(im,256);
-        imwrite(imind,cm,strcat(fname,'.tiff'),'tiff','WriteMode','append');
+        imwrite(imind,cm,strcat(fname,'_view3.tiff'),'tiff','WriteMode','append');
+        
+        view(2)
+        set(legend(gca),'Orientation','vertical','Location','southwestoutside')
+        frame = getframe(f(1));
+        im = frame2im(frame);
+        [imind,cm] = rgb2ind(im,256);
+        imwrite(imind,cm,strcat(fname,'_view2.tiff'),'tiff','WriteMode','append');
         clear im imind cm frame
         end
 
-        t(iter)=toc;
-        fprintf('# of pts: %i \tElapsed Time: %.4f \t\n',iter,t(iter))
+        t(iter)=toc(timer);
+        fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\t  ... Completed BO iteration for iter=%i\n'],iter)
     end
     zBp=zBp{iter};
     plotabsError=plotabsError{iter};
@@ -444,34 +534,43 @@ end
 
 %% Plotting
 close all
+fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tCreating Plots ...\n'])
 
-f(1)=figure('WindowStyle','docked');
-f(2)=figure('WindowStyle','docked');
-f(3)=figure('WindowStyle','docked');
-f(4)=figure('WindowStyle','docked');
-f(5)=figure('WindowStyle','docked');
-f(6)=figure('WindowStyle','docked');
+for l=1:6
+    if ~savedata
+        f(l)=figure('WindowStyle','docked');
+    else
+        f(l)=figure(figure('units','normalized','Position',[mod(l-1,3)/3 floor((l-1)/3)*3 1/2 3/4]));
+    end
+end
 
 % Figure 1: Plot of Surface A, Surface B, the training data
 figure(f(1))
 hold on
-% Surface A
-surf(x,y,zA,'FaceAlpha',.1,'FaceColor',[1 .5 0],'EdgeColor',[1 .5 0],'LineStyle','none');
+mask=~all(testpoints==0,2);
+if method==3
+    % Surface A
+    surf(x,y,zA,'FaceAlpha',.1,'FaceColor',[1 .5 0],'EdgeColor',[1 .5 0],'LineStyle','none');
+    % Phi
+    quiver3(testpoints(mask,1),testpoints(mask,2),fA(testpoints(mask,1),testpoints(mask,2)),zeros(iter,1),zeros(iter,1),testpoints(mask,3)-fA(testpoints(mask,1),testpoints(mask,2)),0)
+    % Test points on Surface A
+    plot3(testpoints(mask,1),testpoints(mask,2),fA(testpoints(mask,1),testpoints(mask,2)),'LineStyle','none','Marker','.')
+end
 % Surface B
 surf(x,y,zB,'FaceAlpha',.1,'FaceColor',[.5 0 .5],'EdgeColor',[.5 0 .5],'LineStyle','none');
-% Phi
-quiver3(testpoints(:,1),testpoints(:,2),fA(testpoints(:,1),testpoints(:,2)),zeros(size(testpoints,1),1),zeros(size(testpoints,1),1),testpoints(:,3)-fA(testpoints(:,1),testpoints(:,2)),0)
-% Test points on Surface A
-plot3(testpoints(:,1),testpoints(:,2),fA(testpoints(:,1),testpoints(:,2)),'LineStyle','none','Marker','.')
 % Test points on Surface B
-plot3(testpoints(:,1),testpoints(:,2),testpoints(:,3),'LineStyle','none','Marker','*')
+plot3(testpoints(mask,1),testpoints(mask,2),testpoints(mask,3),'LineStyle','none','Marker','*')
 % Make Plot Pretty
 xlabel('x (mm)')
 ylabel('y (mm)')
 zlabel('z (mm)')
 axis equal
 axis([-30 30 -30 30 0 20])
+if method==3
 legend('Surface A','Surface B','\phi','f_A(x,y)','f_{B}(x,y)',Location='northeast')
+else
+legend('Surface B','f_{B}(x,y)',Location='northeast')
+end
 view(3)
 fontsize(gcf, scale=1.5)
 
@@ -571,7 +670,7 @@ hold on
 % Mean Surface
 surf(xBp,yBp,zBp,plotabsError,'LineStyle','none');
 % Test points on Surface B
-plot3(testpoints(:,1),testpoints(:,2),testpoints(:,3),'LineStyle','none','MarkerSize',5,'Marker','o', ...
+plot3(testpoints(mask,1),testpoints(mask,2),testpoints(mask,3),'LineStyle','none','MarkerSize',5,'Marker','o', ...
     'MarkerEdgeColor','red','LineWidth',2)
 % Mapped Curve
 plot3(x_c,y_c,z_c,'LineWidth',2,'Color','red')
@@ -645,13 +744,6 @@ if method==1
     text(10^mean(log10(axvec(1:2))),10^mean(log10(axvec(3:4))),'N/A','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',30)
 end
 
-% plot(pts,(modelPerformance.Test.TotAE(n:m)),'Color',[0 0.4470 0.7410],'LineStyle','-','LineWidth',2)
-% plot(pts,(modelPerformance.Train.TotAE(n:m)),'Color',[0 0.4470 0.7410],'LineStyle','--','LineWidth',2)
-% plot(pts,(modelPerformance.CV.TotAE(n:m)),'Color',[0 0.4470 0.7410],'LineStyle',':','LineWidth',2)
-% plot(pts,(modelPerformance.Test.R2(n:m)),'Color',[0.4660 0.6740 0.1880],'LineStyle','-','LineWidth',2)
-% plot(pts,(modelPerformance.Train.R2(n:m)),'Color',[0.4660 0.6740 0.1880],'LineStyle','--','LineWidth',2)
-% plot(pts,(modelPerformance.CV.R2(n:m)),'Color',[0.4660 0.6740 0.1880],'LineStyle',':','LineWidth',2)
-
 han=axes(gcf,'visible','off'); 
 han.Title.Visible='on';
 han.XLabel.Visible='on';
@@ -683,15 +775,17 @@ ylabel('Metric Value (mm)')
 title('Model Performance Evaluation')
 fontsize(gcf, scale=1.5)
 
+%% Outputs
 if savedata 
     savefig(f,strcat(fname,'.fig'))
     for figiter=1:max(size(f))
         exportgraphics(f(figiter),strcat(fname,"_f",num2str(figiter),".eps"))
         exportgraphics(f(figiter),strcat(fname,"_f",num2str(figiter),".png"))
     end
-    clear f dataA dataB fA fB; close all;
-    save(strcat(fname,'.mat'))
-    if ~exist('bulk','var')
-        f=openfig(strcat(fname,'.fig'));
-    end
+    save(strcat(fname,'.mat'),'-regexp','^(?!(f.?|data.)$).')
 end
+elapsedtime = toc(timer);
+fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tDone :)\nCompleted: ',...
+    char(datetime('now','Format','MM/dd/yyyy HH:mm:ss')),'\tElapsed Time: %.2f sec (%.2f min)\n'],...
+    elapsedtime,elapsedtime/60);
+diary off
