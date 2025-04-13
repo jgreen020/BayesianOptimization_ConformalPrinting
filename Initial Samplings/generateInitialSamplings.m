@@ -37,23 +37,17 @@ if method==1
     testpoints=zeros(n^2,3); % Data array of tested points
 
 elseif method==2 || method==3
-    % Type 2, BO
+    % Type 2, Bayesian Experiments
     type=2;
-
-    % Generate a 3x3 grid of points in the limits of x and y
-    xt1=linspace(x_min+pad, x_max-pad, 3);
-    yt1=linspace(y_min+pad, y_max-pad, 3);
-    [xt1, yt1]=meshgrid(xt1,yt1);
-
-    % Generate a 2x2 grid of points where each point is the center of a square
-    % formed by the 3x3 grid
-    xt2=linspace(x_min+pad+(x_rng-2*pad)/4, x_max-pad-(x_rng-2*pad)/4, 2);
-    yt2=linspace(y_min+pad+(y_rng-2*pad)/4, y_max-pad-(y_rng-2*pad)/4, 2);
-    [xt2, yt2]=meshgrid(xt2,yt2);
-
-    % Combine the two grids
-    xt=[xt1(:);xt2(:)];
-    yt=[yt1(:);yt2(:)];
+    
+    % Generate and scramble a semi-random Sobol sequence to sample Surface A
+    rng(1)
+    p = sobolset(2,'Skip',1e3,'Leap',1e2); 
+    p = scramble(p,'MatousekAffineOwen');
+    % Scale values from [0,1] to the size of the surface
+    train_sobol = p(1:n,:); 
+    xt = train_sobol(:,1)*(x_lim(2)-x_lim(1)-2*pad)-(x_lim(2)-x_lim(1)-2*pad)/2; 
+    yt = train_sobol(:,2)*(y_lim(2)-y_lim(1)-2*pad)-(y_lim(2)-y_lim(1)-2*pad)/2; 
 
     % Initialize variables
     t=zeros(m,1);

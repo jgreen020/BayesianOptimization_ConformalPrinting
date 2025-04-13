@@ -12,16 +12,16 @@
 %   (2) Bayesian Optimization with explorative aquistion functions and 
 %       default priors (based on methods from [2] and functions from [3])
 %   (3) Bayesian Optimization with priors trained on CT scanned data of 
-%       other surfaces (expanding upon (2))
+%       other surfaces (expanding upon [2])
 % as well as settings to enable/disable certain functions of the code:
 %   (1) doaprint: Controls if the current run to be simulated using the CT
-%       scan data (False) or if this run is to use data aquired from TCS
+%       scan data (False) or if this run is to use data aquired from TCS (True)
 %   (2) savedata: Controls if the plots and workspace of the run are to be 
 %       saved to Data/Results (True) or not (False). When true, all
 %       variables from the workspace except figures and loaded data will be
 %       saved to a .m file, all figures will be saved as .fig, .png, and .eps, 
 %       the visual plots of the optimization will be saved to .tiff stacks,
-%       and the command window log will be saved to a .txt file
+%       and the command window çlog will be saved to a .txt file
 %   (3) bulk: is not set directly in Inputs.m or main.m, but can be created
 %       in an external script in order to allow the user to run main.m or 
 %       Inputs.m inside of a loop without clearing important variables. This
@@ -50,8 +50,8 @@ if ~exist('bulk','var')
     % Add all current folders to the path
     addpath(genpath(fullfile(pwd)))
 else
-    clearvars -except bulk f fA fB dataA dataB nameA nameB m n ...
-        Curve doaprint savedata surfnames SurfA SurfB AFs A method 
+    clearvars -except bulk f fA fB dataA dataB nameA nameB m n t2ns ...
+        Curve doaprint savedata surfnames SurfA SurfB AFs A method safeloopvar
 end
 
 % Start a timer
@@ -187,6 +187,7 @@ elseif method==2
     zBpCImx=zBp;
     zBpCImn=zBp;
     plotabsError=zBp;
+    fB_p=zBp;
 elseif method==3
     % Make a cell arrays to store trained GPR models and predictions at each iteration
     gprMdls=cell(m,1);
@@ -208,10 +209,10 @@ elseif method==3
 end
 
 % Initialize tables to store model performance metrics at each iteration
-Train = table(zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'MaxAE','MAE','RMSE'});
-CV = table(zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'MaxAE','MAE','RMSE'});
-Test = table(zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'MaxAE','MAE','RMSE'});
-modelPerformance=table(Train, CV, Test, zeros(m,1),'VariableNames',{'Train','CV','Test','MaxCIWidth'});
+Train = table(zeros(m,1),zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'MaxAE','ME','MAE','RMSE'});
+CV = table(zeros(m,1),zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'MaxAE','ME','MAE','RMSE'});
+Test = table(zeros(m,1),zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'MaxAE','ME','MAE','RMSE'});
+modelPerformance=table(Train, CV, Test, zeros(m,1),zeros(m,1),'VariableNames',{'Train','CV','Test','MaxCIWidth','C-RMSE'});
 
 % Create a figure to plot too
 if method~=1 || savedata==true
@@ -241,7 +242,7 @@ if method==1
         % Predict surface at higher resolution
         train_pred=bezierSurf(u,v,P_o{iter});
         test=bezierSurf(rescale(x),rescale(y),P_o{iter});
-        fB_p=scatteredInterpolant(test(:,1:2),test(:,3),'natural');
+        fB_p{iter}=scatteredInterpolant(test(:,1:2),test(:,3),'natural');
         zBp{iter}=reshape(test(:,3),res_s,res_s);
 
         % Bézier Cross-Validation
@@ -272,27 +273,34 @@ if method==1
         end
 
         % Error Calculation
-        trainError = fB_p(initialsampling{iter}.testpoints(:,1:2))-initialsampling{iter}.testpoints(:,3);
+        trainError = fB_p{iter}(initialsampling{iter}.testpoints(:,1:2))-initialsampling{iter}.testpoints(:,3);
         trainabsError = abs(trainError);
         cvError=cvError(:);
         cvabsError = abs(cvError);
         alldata=dataB; % This assignment avoids a warning about broadcast variable
         testdata=alldata(setdiff(1:size(dataB,1),initialsampling{iter}.initindex),:);
-        testError = fB_p(table2array(testdata(:,{'x','y'})))-testdata.z;
+        testError = fB_p{iter}(table2array(testdata(:,{'x','y'})))-testdata.z;
         testabsError = abs(testError);
+        fB2=fB % This assignment avoids a warning about broadcast variable
         plotabsError{iter}=abs(fB(xBp,yBp)-zBp{iter});
         
         % Calculate Metrics
         modelPerformance(iter,:).Train.MaxAE = max(trainabsError);
+        modelPerformance(iter,:).Train.ME = mean(trainError);
         modelPerformance(iter,:).Train.MAE = mean(trainabsError);
         modelPerformance(iter,:).Train.RMSE = std(trainError);
         modelPerformance(iter,:).CV.MaxAE = max(cvabsError);
+        modelPerformance(iter,:).CV.ME = mean(cvError);
         modelPerformance(iter,:).CV.MAE = mean(cvabsError);
         modelPerformance(iter,:).CV.RMSE = std(cvError);
         modelPerformance(iter,:).Test.MaxAE = max(testabsError);
+        modelPerformance(iter,:).Test.ME = mean(testError);
         modelPerformance(iter,:).Test.MAE = mean(testabsError);
         modelPerformance(iter,:).Test.RMSE = std(testError);
         modelPerformance(iter,:).MaxCIWidth = NaN;
+    end
+    for i=min(iter)+1:max(iter)
+        modelPerformance(i,:).("C-RMSE")=rmse(zBp{i},zBp{i-1},'all');
     end
     for iter=iter
         if savedata
@@ -337,8 +345,10 @@ if method==1
         end
     end
     iter=max(iter);
+    zBp_all=zBp;
     zBp=zBp{iter};
     plotabsError=plotabsError{iter};
+    bezMdls=P_o;
     P_o=P_o{iter};
     testpoints=initialsampling{iter}.testpoints;
 elseif method==2 || method==3
@@ -346,20 +356,20 @@ elseif method==2 || method==3
     for iter=iter 
         % Create a table of the training and test data
         train=table(testpoints(1:iter,1),testpoints(1:iter,2),testpoints(1:iter,3),'VariableNames',{'x', 'y','z'});
-    
+        
         % Train a GPR on surface B
-        if method == 2
+        gprMdl_prior=gprMdls{iter-1};
+        if method == 2 && isempty(gprMdl_prior)e
+           
             gprMdlB = fitrgp(train,'z');
-        elseif method == 3
+        else
             gprMdlB = fitrgp(train,'z', ...
-                'FitMethod',gprMdlA.FitMethod,...
-                'Basis',gprMdlA.BasisFunction,...
-                'Beta',gprMdlA.Beta,...
-                'Sigma',gprMdlA.Sigma,...
-                'SigmaLowerBound',gprMdlA.Sigma-0.001,...
-                'Standardize',gprMdlA.ModelParameters.Standardize,...
-                'KernelFunction',gprMdlA.KernelFunction,...
-                'KernelParameters',gprMdlA.KernelInformation.KernelParameters);
+                'Basis',gprMdl_prior.BasisFunction,...
+                'Beta',gprMdl_prior.Beta,...
+                'Sigma',gprMdl_prior.Sigma,...
+                'SigmaLowerBound',max(min(gprMdl_prior.Sigma-0.001,1e-3),1e-7),...
+                'KernelFunction',gprMdl_prior.KernelFunction,...
+                'KernelParameters',gprMdl_prior.KernelInformation.KernelParameters);
         end
         gprMdls{iter}=gprMdlB;
     
@@ -397,18 +407,16 @@ elseif method==2 || method==3
             % Create a table of the training and test data
             train_cv=train((1:iter)~=i,:);
             % Train a GPR on surface B
-            if method==2
-                gprMdlB_cv = fitrgp(train_cv,'z');
-            elseif method == 3
-                gprMdlB_cv = fitrgp(train_cv,'z', ...
-                    'FitMethod',gprMdlA.FitMethod,...
-                    'Basis',gprMdlA.BasisFunction,...
-                    'Beta',gprMdlA.Beta,...
-                    'Sigma',gprMdlA.Sigma,...
-                    'SigmaLowerBound',gprMdlA.Sigma-0.001,...
-                    'Standardize',gprMdlA.ModelParameters.Standardize,...
-                    'KernelFunction',gprMdlA.KernelFunction,...
-                    'KernelParameters',gprMdlA.KernelInformation.KernelParameters);
+            if method == 2 && isempty(gprMdl_prior)
+                gprMdlB_cv = fitrgp(train,'z');
+            else
+                gprMdlB_cv = fitrgp(train,'z', ...
+                    'Basis',gprMdl_prior.BasisFunction,...
+                    'Beta',gprMdl_prior.Beta,...
+                    'Sigma',gprMdl_prior.Sigma,...
+                    'SigmaLowerBound',max(min(gprMdl_prior.Sigma-0.001,1e-3),1e-7),...
+                    'KernelFunction',gprMdl_prior.KernelFunction,...
+                    'KernelParameters',gprMdl_prior.KernelInformation.KernelParameters);
             end
             zBcv(i)=predict(gprMdlB_cv,train(i,{'x','y'}));
             cvError(i)=table2array(train(i,'z'))-zBcv(i);
@@ -434,6 +442,9 @@ elseif method==2 || method==3
         modelPerformance.Test.MAE(iter) = mean(testabsError);
         modelPerformance.Test.RMSE(iter) = std(testError);
         modelPerformance.MaxCIWidth(iter) = max(abs((zBpCI(:,2)-zBpCI(:,1))/2));
+        if ~isempty(zBp{iter-1})
+        modelPerformance.("C-RMSE")(iter)=rmse(zBp{iter},zBp{iter-1},'all');
+        end
 
         % Record and display information
         % Plot surface to make animation
@@ -500,6 +511,7 @@ elseif method==2 || method==3
         t(iter)=toc(timer);
         fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\t  ... Completed BO iteration for iter=%i\n'],iter)
     end
+    zBp_all=zBp;
     zBp=zBp{iter};
     plotabsError=plotabsError{iter};
     zBpCImx=zBpCImx{iter}; 
@@ -697,7 +709,7 @@ if method == 1
 elseif method == 2 || method == 3
     pts=n:m;
 end
-errmat=[table2array(modelPerformance.Train),table2array(modelPerformance.Test),table2array(modelPerformance.CV),modelPerformance.MaxCIWidth];
+errmat=[table2array(modelPerformance.Train(:,{'MAE','MaxAE','RMSE'})),table2array(modelPerformance.Test(:,{'MAE','MaxAE','RMSE'})),table2array(modelPerformance.CV(:,{'MAE','MaxAE','RMSE'})),modelPerformance.MaxCIWidth];
 errmax=10^ceil(log10(max(errmat(errmat~=0),[],'all')));
 errmin=10^floor(log10(min(errmat(errmat~=0),[],'all')));
 axvec=[min(pts) max(pts) errmin errmax];
@@ -726,9 +738,10 @@ hold on
 plot(pts,(modelPerformance.Test.RMSE(n:m)),'Color',[0.4940 0.1840 0.5560],'LineStyle','-','LineWidth',2)
 plot(pts,(modelPerformance.Train.RMSE(n:m)),'Color',[0.4940 0.1840 0.5560],'LineStyle','--','LineWidth',2)
 plot(pts,(modelPerformance.CV.RMSE(n:m)),'Color',[0.4940 0.1840 0.5560],'LineStyle',':','LineWidth',2)
+plot(pts(2:end),(modelPerformance.("C-RMSE")(n+1:m)),'Color',[0.4660 0.6740 0.1880],'LineStyle','-.','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
-legend('RSME_{test}','RSME_{train}','RSME_{CV}','Location','southoutside','Orientation','horizontal') 
+legend('RMSE_{test}','RMSE_{train}','RMSE_{CV}','C-RMSE','Location','southoutside','Orientation','horizontal') 
 ylabel({'Root Mean Square Error', '(mm)'})
 axis(axvec)
 
@@ -765,11 +778,12 @@ plot(pts,(modelPerformance.Test.RMSE(n:m)),'Color',[0.4940 0.1840 0.5560],'LineS
 plot(pts,(modelPerformance.Train.RMSE(n:m)),'Color',[0.4940 0.1840 0.5560],'LineStyle','--','LineWidth',2)
 plot(pts,(modelPerformance.CV.RMSE(n:m)),'Color',[0.4940 0.1840 0.5560],'LineStyle',':','LineWidth',2)
 plot(pts,(modelPerformance.MaxCIWidth(n:m)),'Color',[0.3010 0.7450 0.9330],'LineStyle','-','LineWidth',2)
+plot(pts(2:end),(modelPerformance.("C-RMSE")(n+1:m)),'Color',[0.4660 0.6740 0.1880],'LineStyle','-.','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
 axis(axvec)
 legend('MaxAE_{test}','MaxAE_{train}','MaxAE_{CV}','MAE_{test}','MAE_{train}','MAE_{CV}',...
-    'RSME_{test}','RSME_{train}','RSME_{CV}','Maximum CI Width','NumColumns',4,'Location','southoutside') 
+    'RMSE_{test}','RMSE_{train}','RMSE_{CV}','Maximum CI Width','C-RMSE','NumColumns',4,'Location','southoutside') 
 xlabel('Number of Points (n)')
 ylabel('Metric Value (mm)')
 title('Model Performance Evaluation')
