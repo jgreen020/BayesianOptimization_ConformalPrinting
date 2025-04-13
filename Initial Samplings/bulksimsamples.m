@@ -11,6 +11,8 @@ surfnames={'Surf1a.csv','Surf1b.csv','Surf1c.csv',...
 % Create bulk variable
 bulk=1;
 
+Inputs
+
 % Loop through all surfaces
 for i=1:length(surfnames)
     % Import the surface data
@@ -26,7 +28,9 @@ for i=1:length(surfnames)
 
     % Calculate initial sampling for Methods 2 and 3
     method=2;
-    n=13;
+    ns=[10,10,10,20,20,20,40,40,40];
+    n=ns(i);
+    m=225;
     generateInitialSamplings
     fprintf('complete:\tt2\ti=%i \tn=%i\n',i,n)
 end

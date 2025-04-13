@@ -29,7 +29,7 @@ if ~exist('bulk','var')
 
     % Surfaces and Curves
     SurfA='Surf1a.csv'; % Name of the file containing the CT scan data for Surface A
-    SurfB='Surf1b.csv'; % Name of the file containing the CT scan data for Surface B
+    SurfB='Surf1c.csv'; % Name of the file containing the CT scan data for Surface B
     Curve=@Hybrid; % Curve Parameterizaion
     
     % Surface Fitting Settings
@@ -39,11 +39,10 @@ if ~exist('bulk','var')
               % 3) Bayesian Optimization with prior trained on SurfA
     if method==1
         n=3; % Grid size of sampling points for Bezier Fitting (n x n grid, n > 3)
-        m=15; % If doing a simulation, program will test bezier fitting for n:1:m in parallel
+        m=9; % If doing a simulation, program will test bezier fitting for n:1:m in parallel
     elseif method==2 || method==3
-        n=13; % Number of points to sample before starting Bayesian Optimization 
-              % WARNING: Changing this number has no effect besides breaking things
-        m=40; % Final number of points for Bayseian Optimization
+        n=10; % Number of points to sample before starting Bayesian Optimization
+        m=225; % Final number of points for Bayesian Optimization
         A=@IVR2; % Aquisition Function to use
     else
         disp('ERROR: Invalid Method Number')
