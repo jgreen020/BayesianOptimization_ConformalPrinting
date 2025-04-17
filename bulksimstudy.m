@@ -1,7 +1,7 @@
 %% bulksimstudy.m
 % Author: Jake Colwell
 % Created: March 1, 2025
-% Last Modified: March 15, 2025
+% Last Modified: April 14, 2025
 % Run main.m for all surfaces, methods, and aquisition functions
 
 clear;clc;close all
