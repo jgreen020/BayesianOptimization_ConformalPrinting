@@ -28,12 +28,12 @@ cmax=0.165; % Maximum Deviation (mm), sets the maximum for colormaps
 if ~exist('bulk','var')
 
     % Surfaces and Curves
-    SurfA='Surf1a.csv'; % Name of the file containing the CT scan data for Surface A
-    SurfB='Surf1c.csv'; % Name of the file containing the CT scan data for Surface B
+    SurfA='Surf3a.csv'; % Name of the file containing the CT scan data for Surface A
+    SurfB='Surf3c_holes.csv'; % Name of the file containing the CT scan data for Surface B
     Curve=@Hybrid; % Curve Parameterizaion
     
     % Surface Fitting Settings
-    method=3; % Which surface fitting method to use. 
+    method=4; % Which surface fitting method to use. 
               % 1) Bézier Surface Fitting
               % 2) Naive Bayesian Optimization
               % 3) Bayesian Optimization with prior trained on SurfA
@@ -44,6 +44,11 @@ if ~exist('bulk','var')
         n=10; % Number of points to sample before starting Bayesian Optimization
         m=225; % Final number of points for Bayesian Optimization
         A=@IVR2; % Aquisition Function to use
+    elseif method==4
+        n=15^2;
+        m=15^2;
+        net="Data/M4/trained_network3.mat";
+        res_im=128;
     else
         disp('ERROR: Invalid Method Number')
         return

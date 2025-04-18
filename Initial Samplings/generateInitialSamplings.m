@@ -1,7 +1,7 @@
 %% generateInitialSamplings.m
 % Authors: Jake Colwell and Zyaire Howard
 % Created: Between January 16th and February 24, 2025
-% Last Modified: March 14, 2024
+% Last Modified: April 15, 2024
 % Generate an initial sampling of data to be used by main.m
 
 % Record the current date and time
@@ -19,10 +19,10 @@ y_min = min(y_lim); y_max = max(y_lim); y_rng=y_max-y_min;
 % Find (x,y) locations of points to sample
 % There are two types depending on the method:
 %   Type 1: Uniform sampling of n^2 points for Method 1
-%   Type 2: Nested 3x3 and 2x2 uniform samplings (13 points) for Methods 2 and 3 
-if method==1
+%   Type 2: Sobol Sample n points for Methods 2, 3, and 4 
 
-    % Type 1, Bezier Surface Fitting
+if method==1
+    % Type 1, Uniform Sampling
     type=1;
 
     % find n evenly spaced values in the limits of x and y
@@ -37,7 +37,7 @@ if method==1
     testpoints=zeros(n^2,3); % Data array of tested points
 
 elseif method==2 || method==3
-    % Type 2, Bayesian Experiments
+    % Type 2, Sobol Sampling for Point Cloud
     type=2;
     
     % Generate and scramble a semi-random Sobol sequence to sample Surface A
@@ -52,6 +52,22 @@ elseif method==2 || method==3
     % Initialize variables
     t=zeros(m,1);
     testpoints=zeros(m,3);
+elseif method==4
+    % Type 2, Sobol Sampling for Images
+    type=3;
+    hey dummy make sure no points get double sampled
+    % Generate and scramble a semi-random Sobol sequence
+    rng(1)
+    p = sobolset(2,'Skip',1e3,'Leap',1e2); 
+    p = scramble(p,'MatousekAffineOwen');
+    % Scale values from [0,1] to the size of the surface
+    train_sobol = p(1:n,:); 
+    xt = train_sobol(:,1)*(x_lim(2)-x_lim(1)-2*pad)-(x_lim(2)-x_lim(1)-2*pad)/2; 
+    yt = train_sobol(:,2)*(y_lim(2)-y_lim(1)-2*pad)-(y_lim(2)-y_lim(1)-2*pad)/2; 
+
+    % Initialize variables
+    t=zeros(n,1);
+    testpoints=zeros(n,3);
 end
 
 % Sample the points selected above

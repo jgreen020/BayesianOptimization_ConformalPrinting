@@ -4,7 +4,7 @@
 % Last Major Modification: March 14, 2025
 % Fit a model of a surface to a sparse point cloud and generate a path to be printed
 % Accompanies the paper: (INSERT DOI AFTER PUBLISHING)
-% Reccomended toolboxes: Parallel Computing Toolbox
+% Reccomended toolboxes: Deep Learning Toolbox, Parallel Computing Toolbox
 
 % This is a massive Frankenstein's monster of code that combines 3 different
 % surface mapping methods including:
@@ -51,7 +51,8 @@ if ~exist('bulk','var')
     addpath(genpath(fullfile(pwd)))
 else
     clearvars -except bulk f fA fB dataA dataB nameA nameB m n t2ns ...
-        Curve doaprint savedata surfnames SurfA SurfB AFs A method safeloopvar
+        Curve doaprint savedata surfnames SurfA SurfB AFs A method ...
+        safeloopvar trained_net net res_im
 end
 
 % Start a timer
@@ -71,7 +72,7 @@ Inputs
 
 % Create a filename to write all the data with
 if doaprint; type='real'; else; type='sim'; end
-if method==1
+if method==1 || method==4
     fname0=strcat(starttime,'_',nameB,'_','M',num2str(method),'_',type);
 elseif method==2
     fname0=strcat(starttime,'_',nameB,'_','M',num2str(method),'_',func2str(A),'_',type);
@@ -89,13 +90,17 @@ if savedata
     diary(strcat(fname,'.txt'))
 end
 
-% Import CT scan data, but only if not doing a bulk run to save time
+% Import CT scan data and/or trained network, but only if not doing a bulk run to save time
 if ~exist('bulk','var')
 fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tImporting Surface B ...\n'])
 [dataB, fB, nameB]=importCTdata(SurfB,y_lim,x_lim,pad);
 if method==3
 fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tImporting Surface A ...\n'])
 [dataA, fA, nameA]=importCTdata(SurfA,y_lim,x_lim,pad);
+end
+if method==4
+fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tImporting Network ...\n'])
+load(net)
 end
 end
 
@@ -107,7 +112,7 @@ x_min = min(x_lim); x_max = max(x_lim); x_rng=x_max-x_min;
 y_min = min(y_lim); y_max = max(y_lim); y_rng=y_max-y_min;
 z_min = -10; z_max=20; z_rng=z_min-z_max;
 
-% Generate high-resolution x and y vectors for surface plotting / prediction
+% Generate high-resolution x and y vectors for surface plotting
 x=linspace(x_min+pad, x_max-pad, res_s);
 y=linspace(y_min+pad, y_max-pad, res_s);
 
@@ -130,6 +135,8 @@ if method==1
     type=1;
 elseif method==2 || method==3
     type=2;
+elseif method==4
+    type=3;
 end
 if doaprint
     word='TCS';
@@ -156,12 +163,16 @@ end
 
 % Generate the iteration vector for the main for loop, ensuring that the 
 % inputted m and n values make sense
-if doaprint && method==1
-    % If doing a print with Method 1, it should only run once
+if doaprint && (method==1 || method==4)
+    % If doing a print with Method 1 or 4, it should only run once
     iter=n;
 else
     if m>=n
+        if method==4
+        iter=(floor(sqrt(n)):floor(sqrt(m))).^2;
+        else
         iter=n:m;
+        end
     elseif m<n
         disp('Error: Final number of points (m) must be greater than or equal to n')
         return
@@ -206,6 +217,11 @@ elseif method==3
 
     % Load the prior model into the cell array as the (n-1)th model
     gprMdls{n-1}=gprMdlA;
+elseif method==4
+    % Make a cell arrays to store predictions at each iteration
+    zBp=cell(ceil(sqrt(m)),1);
+    plotabsError=zBp;
+    fB_p=zBp;
 end
 
 % Initialize tables to store model performance metrics at each iteration
@@ -219,6 +235,9 @@ if method~=1 || savedata==true
 f(1)=figure('units','normal','position',[0 .5 .6 .5]);
 end
 
+%FIX THIS 
+iter2=iter;
+    
 % Enter the main loop
 fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tEntering the main loop ...\n'])
 if method==1
@@ -359,7 +378,7 @@ elseif method==2 || method==3
         
         % Train a GPR on surface B
         gprMdl_prior=gprMdls{iter-1};
-        if method == 2 && isempty(gprMdl_prior)e
+        if method == 2 && isempty(gprMdl_prior)
            
             gprMdlB = fitrgp(train,'z');
         else
@@ -433,12 +452,15 @@ elseif method==2 || method==3
 
         % Calculate metrics
         modelPerformance.Train.MaxAE(iter) = max(trainabsError);
+        modelPerformance.Train.ME(iter) = mean(trainError);
         modelPerformance.Train.MAE(iter) = mean(trainabsError);
         modelPerformance.Train.RMSE(iter) = std(trainError);
         modelPerformance.CV.MaxAE(iter) = max(cvabsError);
+        modelPerformance.CV.ME(iter) = mean(cvError);
         modelPerformance.CV.MAE(iter) = mean(cvabsError);
         modelPerformance.CV.RMSE(iter) = std(cvError);
         modelPerformance.Test.MaxAE(iter) = max(testabsError);
+        modelPerformance.Test.ME(iter) = mean(testError);
         modelPerformance.Test.MAE(iter) = mean(testabsError);
         modelPerformance.Test.RMSE(iter) = std(testError);
         modelPerformance.MaxCIWidth(iter) = max(abs((zBpCI(:,2)-zBpCI(:,1))/2));
@@ -517,6 +539,110 @@ elseif method==2 || method==3
     zBpCImx=zBpCImx{iter}; 
     zBpCImn=zBpCImn{iter};
     clear trainError trainabsError cvabsError testdata testError testabsError
+elseif method==4
+    for iter=iter
+        fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\t  ... Calculating Network Image for iter=%i\n'],iter)
+
+        % Network prediction for iter=n:1:m
+        initialsampling{iter} = load(strcat(fullfile(pwd,'/Initial Samplings')...
+            ,'/',word,'_t',num2str(type),'_',nameB,'_n',num2str(iter),'.mat'));
+        if ~(all(x_lim == initialsampling{iter}.x_lim_in) && all(y_lim == initialsampling{iter}.y_lim_in) && (pad == initialsampling{iter}.pad_in))
+            disp(['ERROR: Inputs do not match saved sampling. Either create a new' ...
+                ' sampling with these inputs or change your inputs to match the initial sampling.'])
+        end
+        
+        % Transform Initial Sampling into an Image
+        idx_x=round(rescale([x_min+pad; x_max-pad; initialsampling{iter}.testpoints(:,1)],1,res_im));
+        idx_y=round(rescale([y_min+pad; y_max-pad; initialsampling{iter}.testpoints(:,2)],1,res_im));
+        idx_x=idx_x(3:end); idx_y=idx_y(3:end);
+        image = sparse(idx_x,idx_y,rescale(initialsampling{iter}.testpoints(:,3)),res_im,res_im);
+        
+        % Predict the output
+        pred_all=double(rescale(predict(trained_net,full(image)),min(initialsampling{iter}.testpoints(:,3)),max(initialsampling{iter}.testpoints(:,3))));
+        pred_full=pred_all(:,:,1)';
+        pred{iter}=reshape(pred_full,[],1);
+
+        % Predict surface at higher resolution
+        x_im=linspace(x_min+pad,x_max-pad,res_im);
+        y_im=linspace(y_min+pad,y_max-pad,res_im);
+        [x_im, y_im]=meshgrid(x_im, y_im);
+        fB_p{iter}=scatteredInterpolant([x_im(:) y_im(:)],pred{iter},'natural');
+        zBp{iter}=reshape(fB_p{iter}(xd,yd),res_s,res_s);
+
+        % Error Calculation
+        trainError = fB_p{iter}(initialsampling{iter}.testpoints(:,1:2))-initialsampling{iter}.testpoints(:,3);
+        trainabsError = abs(trainError);
+        testdata=dataB(setdiff(1:size(dataB,1),initialsampling{iter}.initindex),:);
+        testError = fB_p{iter}(table2array(testdata(:,{'x','y'})))-testdata.z;
+        testabsError = abs(testError);
+        plotabsError{iter}=abs(fB(xBp,yBp)-zBp{iter});
+        
+        % Calculate Metrics
+        modelPerformance(iter,:).Train.MaxAE = max(trainabsError);
+        modelPerformance(iter,:).Train.ME = mean(trainError);
+        modelPerformance(iter,:).Train.MAE = mean(trainabsError);
+        modelPerformance(iter,:).Train.RMSE = std(trainError);
+        modelPerformance(iter,:).CV.MaxAE = NaN;
+        modelPerformance(iter,:).CV.ME = NaN;
+        modelPerformance(iter,:).CV.MAE = NaN;
+        modelPerformance(iter,:).CV.RMSE = NaN;
+        modelPerformance(iter,:).Test.MaxAE = max(testabsError);
+        modelPerformance(iter,:).Test.ME = mean(testError);
+        modelPerformance(iter,:).Test.MAE = mean(testabsError);
+        modelPerformance(iter,:).Test.RMSE = std(testError);
+        modelPerformance(iter,:).MaxCIWidth = NaN;
+        if exist('lastiter','var')
+        modelPerformance.("C-RMSE")(iter)=rmse(zBp{iter},zBp{lastiter},'all');
+        end
+        lastiter=iter;
+    end
+    for iter=iter2
+        if savedata
+        % Plot surface to make animation
+        figure(f(1))
+        % Test points on Surface B
+        plot3(initialsampling{iter}.testpoints(:,1),initialsampling{iter}.testpoints(:,2),initialsampling{iter}.testpoints(:,3),'LineStyle','none','MarkerSize',5,'Marker','o', ...
+        'MarkerEdgeColor','white','MarkerFaceColor','black','LineWidth',2);
+        hold on
+        % Mean Surface
+        surf(xBp,yBp,zBp{iter},reshape(plotabsError{iter},res_s,res_s),'LineStyle','none');
+        % Make plot pretty 
+        xlabel('x (mm)')
+        ylabel('y (mm)')
+        zlabel('z (mm)')
+        axis equal
+        axis([x_min x_max y_min y_max z_min z_max])
+        view(3)
+        e=colorbar;
+        e.Label.String='Absolute Error (mm)';
+        clim([0 cmax])
+        title({strcat('Network Fit, n=',num2str(iter))}) 
+        legend('Tested Points','Network Surface Prediction','Orientation','horizontal','Location','southoutside')
+        colormap('viridis')
+        fontsize(f(1), scale=2)
+        hold off
+        drawnow
+
+        %Save frame to an image stack
+        frame = getframe(f(1));
+        im = frame2im(frame);
+        [imind,cm] = rgb2ind(im,256);
+        imwrite(imind,cm,strcat(fname,'_view3.tiff'),'tiff','WriteMode','append');
+        
+        view(2)
+        set(legend(gca),'Orientation','vertical','Location','southwestoutside')
+        frame = getframe(f(1));
+        im = frame2im(frame);
+        [imind,cm] = rgb2ind(im,256);
+        imwrite(imind,cm,strcat(fname,'_view2.tiff'),'tiff','WriteMode','append');
+        clear im imind cm frame
+        end
+    end
+    iter=max(iter);
+    zBp_all=zBp;
+    zBp=zBp{iter};
+    plotabsError=plotabsError{iter};
+    testpoints=initialsampling{iter}.testpoints;
 end
 
 %% Curve Mapping
@@ -530,7 +656,7 @@ if method == 1
     x_c=wypts(:,1);
     y_c=wypts(:,2);
     z_c=wypts(:,3);
-elseif method == 2 || method == 3
+elseif method == 2 || method == 3 || method == 4
     % Use direct projection on the curve (map parameter space to real space)
     x_c = (x_max - x_min) * u_c + x_min;
     y_c = (y_max - y_min) * v_c + y_min;
@@ -538,8 +664,12 @@ elseif method == 2 || method == 3
     % Create a table for the curve points to predict deformation using GPR
     curve_pts = table(x_c, y_c, 'VariableNames', {'x', 'y'});
     
-    % Predict the deformation values (phi) for the curve points using the GPR model
+    % Predict the deformation values (phi) for the curve points
+    if method == 2 || method == 3
     [z_c, ~, ~] = predict(gprMdlB, curve_pts);
+    elseif method == 4
+    z_c = fB_p{iter}(x_c,y_c);
+    end
     % Assemble the points
     wypts=[x_c,y_c,z_c];
 end
@@ -548,7 +678,13 @@ end
 close all
 fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tCreating Plots ...\n'])
 
-for l=1:6
+if method == 4 || n==m
+    l=1:4;
+else
+    l=1:6;
+end
+
+for l=l
     if ~savedata
         f(l)=figure('WindowStyle','docked');
     else
@@ -607,6 +743,8 @@ elseif method == 2 || method == 3
     surf(xBp,yBp,zBpCImn, ...
         'FaceAlpha',.1,'FaceColor',[.5 .5 .5],'EdgeColor',[.5 0 .5],'LineStyle','none');
     title({'Gaussian Process Regression Model','of a Freeform Surface'})
+elseif method == 4
+    title({'Convolutional Autoencoder Prediction','of a Freeform Surface'})
 end
 % Make plot pretty
 xlabel('x (mm)')
@@ -701,21 +839,27 @@ colormap('viridis')
 fontsize(gcf, scale=1.5)
 
 % Figure 5 Error Metric Plots
+if n~=m
 figure(f(5))
 subplot(2,2,1)
 hold on
 if method == 1
     pts=(n:m).^2;
+    idxs=n:m;
 elseif method == 2 || method == 3
     pts=n:m;
+    idxs=n:m;
+elseif method == 4
+    pts=(sqrt(n):sqrt(m)).^2;
+    idxs=(sqrt(n):sqrt(m)).^2;
 end
 errmat=[table2array(modelPerformance.Train(:,{'MAE','MaxAE','RMSE'})),table2array(modelPerformance.Test(:,{'MAE','MaxAE','RMSE'})),table2array(modelPerformance.CV(:,{'MAE','MaxAE','RMSE'})),modelPerformance.MaxCIWidth];
 errmax=10^ceil(log10(max(errmat(errmat~=0),[],'all')));
 errmin=10^floor(log10(min(errmat(errmat~=0),[],'all')));
 axvec=[min(pts) max(pts) errmin errmax];
-plot(pts,(modelPerformance.Test.MaxAE(n:m)),'Color',[0.8500 0.3250 0.0980],'LineStyle','-','LineWidth',2)
-plot(pts,(modelPerformance.Train.MaxAE(n:m)),'Color',[0.8500 0.3250 0.0980],'LineStyle','--','LineWidth',2)
-plot(pts,(modelPerformance.CV.MaxAE(n:m)),'Color',[0.8500 0.3250 0.0980],'LineStyle',':','LineWidth',2)
+plot(pts,(modelPerformance.Test.MaxAE(idxs)),'Color',[0.8500 0.3250 0.0980],'LineStyle','-','LineWidth',2)
+plot(pts,(modelPerformance.Train.MaxAE(idxs)),'Color',[0.8500 0.3250 0.0980],'LineStyle','--','LineWidth',2)
+plot(pts,(modelPerformance.CV.MaxAE(idxs)),'Color',[0.8500 0.3250 0.0980],'LineStyle',':','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
 legend('MaxAE_{test}','MaxAE_{train}','MaxAE_{CV}','Location','southoutside','Orientation','horizontal') 
@@ -724,9 +868,9 @@ axis(axvec)
 
 subplot(2,2,2)
 hold on
-plot(pts,(modelPerformance.Test.MAE(n:m)),'Color',[0.9290 0.6940 0.1250],'LineStyle','-','LineWidth',2)
-plot(pts,(modelPerformance.Train.MAE(n:m)),'Color',[0.9290 0.6940 0.1250],'LineStyle','--','LineWidth',2)
-plot(pts,(modelPerformance.CV.MAE(n:m)),'Color',[0.9290 0.6940 0.1250],'LineStyle',':','LineWidth',2)
+plot(pts,(modelPerformance.Test.MAE(idxs)),'Color',[0.9290 0.6940 0.1250],'LineStyle','-','LineWidth',2)
+plot(pts,(modelPerformance.Train.MAE(idxs)),'Color',[0.9290 0.6940 0.1250],'LineStyle','--','LineWidth',2)
+plot(pts,(modelPerformance.CV.MAE(idxs)),'Color',[0.9290 0.6940 0.1250],'LineStyle',':','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
 legend('MAE_{test}','MAE_{train}','MAE_{CV}','Location','southoutside','Orientation','horizontal') 
@@ -735,10 +879,10 @@ axis(axvec)
 
 subplot(2,2,3)
 hold on
-plot(pts,(modelPerformance.Test.RMSE(n:m)),'Color',[0.4940 0.1840 0.5560],'LineStyle','-','LineWidth',2)
-plot(pts,(modelPerformance.Train.RMSE(n:m)),'Color',[0.4940 0.1840 0.5560],'LineStyle','--','LineWidth',2)
-plot(pts,(modelPerformance.CV.RMSE(n:m)),'Color',[0.4940 0.1840 0.5560],'LineStyle',':','LineWidth',2)
-plot(pts(2:end),(modelPerformance.("C-RMSE")(n+1:m)),'Color',[0.4660 0.6740 0.1880],'LineStyle','-.','LineWidth',2)
+plot(pts,(modelPerformance.Test.RMSE(idxs)),'Color',[0.4940 0.1840 0.5560],'LineStyle','-','LineWidth',2)
+plot(pts,(modelPerformance.Train.RMSE(idxs)),'Color',[0.4940 0.1840 0.5560],'LineStyle','--','LineWidth',2)
+plot(pts,(modelPerformance.CV.RMSE(idxs)),'Color',[0.4940 0.1840 0.5560],'LineStyle',':','LineWidth',2)
+plot(pts(2:end),(modelPerformance.("C-RMSE")(idxs(2:end))),'Color',[0.4660 0.6740 0.1880],'LineStyle','-.','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
 legend('RMSE_{test}','RMSE_{train}','RMSE_{CV}','C-RMSE','Location','southoutside','Orientation','horizontal') 
@@ -747,7 +891,7 @@ axis(axvec)
 
 subplot(2,2,4)
 hold on
-plot(pts,(modelPerformance.MaxCIWidth(n:m)),'Color',[0.3010 0.7450 0.9330],'LineStyle','-','LineWidth',2)
+plot(pts,(modelPerformance.MaxCIWidth(idxs)),'Color',[0.3010 0.7450 0.9330],'LineStyle','-','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
 legend('Maximum CI Width','Location','southoutside','Orientation','horizontal') 
@@ -768,17 +912,17 @@ fontsize(gcf, scale=1.5)
 % Figure 6 Error Metric Plot
 figure(f(6))
 hold on
-plot(pts,(modelPerformance.Test.MaxAE(n:m)),'Color',[0.8500 0.3250 0.0980],'LineStyle','-','LineWidth',2)
-plot(pts,(modelPerformance.Train.MaxAE(n:m)),'Color',[0.8500 0.3250 0.0980],'LineStyle','--','LineWidth',2)
-plot(pts,(modelPerformance.CV.MaxAE(n:m)),'Color',[0.8500 0.3250 0.0980],'LineStyle',':','LineWidth',2)
-plot(pts,(modelPerformance.Test.MAE(n:m)),'Color',[0.9290 0.6940 0.1250],'LineStyle','-','LineWidth',2)
-plot(pts,(modelPerformance.Train.MAE(n:m)),'Color',[0.9290 0.6940 0.1250],'LineStyle','--','LineWidth',2)
-plot(pts,(modelPerformance.CV.MAE(n:m)),'Color',[0.9290 0.6940 0.1250],'LineStyle',':','LineWidth',2)
-plot(pts,(modelPerformance.Test.RMSE(n:m)),'Color',[0.4940 0.1840 0.5560],'LineStyle','-','LineWidth',2)
-plot(pts,(modelPerformance.Train.RMSE(n:m)),'Color',[0.4940 0.1840 0.5560],'LineStyle','--','LineWidth',2)
-plot(pts,(modelPerformance.CV.RMSE(n:m)),'Color',[0.4940 0.1840 0.5560],'LineStyle',':','LineWidth',2)
-plot(pts,(modelPerformance.MaxCIWidth(n:m)),'Color',[0.3010 0.7450 0.9330],'LineStyle','-','LineWidth',2)
-plot(pts(2:end),(modelPerformance.("C-RMSE")(n+1:m)),'Color',[0.4660 0.6740 0.1880],'LineStyle','-.','LineWidth',2)
+plot(pts,(modelPerformance.Test.MaxAE(idxs)),'Color',[0.8500 0.3250 0.0980],'LineStyle','-','LineWidth',2)
+plot(pts,(modelPerformance.Train.MaxAE(idxs)),'Color',[0.8500 0.3250 0.0980],'LineStyle','--','LineWidth',2)
+plot(pts,(modelPerformance.CV.MaxAE(idxs)),'Color',[0.8500 0.3250 0.0980],'LineStyle',':','LineWidth',2)
+plot(pts,(modelPerformance.Test.MAE(idxs)),'Color',[0.9290 0.6940 0.1250],'LineStyle','-','LineWidth',2)
+plot(pts,(modelPerformance.Train.MAE(idxs)),'Color',[0.9290 0.6940 0.1250],'LineStyle','--','LineWidth',2)
+plot(pts,(modelPerformance.CV.MAE(idxs)),'Color',[0.9290 0.6940 0.1250],'LineStyle',':','LineWidth',2)
+plot(pts,(modelPerformance.Test.RMSE(idxs)),'Color',[0.4940 0.1840 0.5560],'LineStyle','-','LineWidth',2)
+plot(pts,(modelPerformance.Train.RMSE(idxs)),'Color',[0.4940 0.1840 0.5560],'LineStyle','--','LineWidth',2)
+plot(pts,(modelPerformance.CV.RMSE(idxs)),'Color',[0.4940 0.1840 0.5560],'LineStyle',':','LineWidth',2)
+plot(pts,(modelPerformance.MaxCIWidth(idxs)),'Color',[0.3010 0.7450 0.9330],'LineStyle','-','LineWidth',2)
+plot(pts(2:end),(modelPerformance.("C-RMSE")(idxs(2:end))),'Color',[0.4660 0.6740 0.1880],'LineStyle','-.','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
 axis(axvec)
@@ -788,7 +932,7 @@ xlabel('Number of Points (n)')
 ylabel('Metric Value (mm)')
 title('Model Performance Evaluation')
 fontsize(gcf, scale=1.5)
-
+end
 %% Outputs
 if savedata 
     savefig(f,strcat(fname,'.fig'))

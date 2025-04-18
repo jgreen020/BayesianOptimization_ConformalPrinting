@@ -1,7 +1,7 @@
 %% bulksimsamples.m
 % Author: Jake Colwell
 % Created: ???
-% Last modified: March 14, 2024
+% Last modified: April 15, 2024
 % Generate initial samplings for all simulated datasets
 
 % All surfaces to be tested
@@ -33,4 +33,11 @@ for i=1:length(surfnames)
     m=225;
     generateInitialSamplings
     fprintf('complete:\tt2\ti=%i \tn=%i\n',i,n)
+
+    % Calculate initial sampling for Method 4
+    method=4;
+    for n=(3:15).^2
+        generateInitialSamplings
+        fprintf('complete:\tt3\ti=%i \tn=%i\n',i,n)
+    end
 end
