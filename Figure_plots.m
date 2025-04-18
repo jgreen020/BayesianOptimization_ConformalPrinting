@@ -249,7 +249,7 @@ end
 % fontsize(gcf, scale=1.5)
 % grid on
 
-%% Stopping Criteria Figures
+%% Full Stopping Criteria Figures
 clc; clear; close all;
 
 % Load data
@@ -257,24 +257,12 @@ addpath(genpath(fullfile(pwd)))
 basepath = "Data/Results/20250417_SimStudy3/";
 dirnames = dir(basepath+"*sim*");
 
-figure(10);
-set(gcf, 'Name', 'Criteria Tuning Helper','WindowStyle', 'docked');
-for i=1:9
-    subplot(3,3,i)
-    hold on
-    yticks([0 1 2 4 5 6 8 9 10])
-    yticklabels(["G","CT","EC","G","CT","EC","G","CT","EC"])
-    set(gca,'YGrid','on')
-    axis([-inf inf -1 11])
-end
-
 for i = 1:size(dirnames,1)
     % Load data
     dirname = basepath + dirnames(i).name;
     fname = dirname + "/" + dirnames(i).name + ".mat";
     load(fname, 'modelPerformance'); % ME is 0 over all simulation runs
     load(fname, 'n');
-    load(fname, 'SurfA');
     load(fname, 'SurfB');
     load(fname, 'method');
 
@@ -382,6 +370,81 @@ for i = 1:size(dirnames,1)
     saveas(figure(3),dirname + "/" + dirnames(i).name + "_ferr" + ".fig")
     saveas(figure(3),dirname + "/" + dirnames(i).name + "_ferr" + ".png")
     saveas(figure(3),dirname + "/" + dirnames(i).name + "_ferr" + ".eps")
+end
+
+%% Stopping Criteria Summary Figure
+clc; clear; close all;
+
+% Load data
+addpath(genpath(fullfile(pwd)))
+basepath = "Data/Results/20250417_SimStudy3/";
+dirnames = dir(basepath+"*sim*");
+
+figure(10);
+set(gcf, 'Name', 'Criteria Tuning Helper','WindowStyle', 'normal','Position',[0 0 1280 840],'Color','white');
+tl=tiledlayout(3,3);
+ylabel(tl,'Stopping Criteria');
+xlabel(tl,'Number of Points, n');
+title(tl,'Stopping Criteria Comparison');
+for i=1:9
+    nexttile
+    hold on
+    yticks([0 1 2 4 5 6 8 9 10])
+    yticklabels(["G","CT","EC","G","CT","EC","G","CT","EC"])
+    set(gca,'YGrid','on')
+    axis([-inf inf -1 11])
+end
+
+for i = 1:size(dirnames,1)
+    % Load data
+    dirname = basepath + dirnames(i).name;
+    fname = dirname + "/" + dirnames(i).name + ".mat";
+    load(fname, 'modelPerformance'); % ME is 0 over all simulation runs
+    load(fname, 'n');
+    load(fname, 'SurfB');
+    load(fname, 'method');
+
+    % Error Metrics
+    
+    % Critical Numbers
+    criticalNumber1 = 0.165;
+    criticalNumber2 = 0.5;
+    criticalNumber3 = 6e-4;
+    criticalNumber4 = 0.1;
+
+    % Ideal:
+    % Guarantee of Point Quality
+    [IdealGuarantee, printNumberIG] = Guarantee(modelPerformance,'Ideal',criticalNumber1);
+    % Confidence Testing
+    [IdealConfidenceTesting, printNumberICT] = ConfidenceTesting(modelPerformance,'Ideal',criticalNumber2);
+    % Error Convergence
+    [IdealErrorConvergence, printNumberIEC] = ErrorConvergence(modelPerformance,'Ideal',criticalNumber3);
+    % Error Agreement    
+    [IdealErrorAgreement, printNumberIEA] = ErrorAgreement(modelPerformance,'Ideal',criticalNumber4);
+
+    % Actual:
+    % Guarantee of Point Quality
+    [ActualGuarantee, printNumberAG] = Guarantee(modelPerformance,'Actual',criticalNumber1);
+    % Confidence Testing
+    [ActualConfidenceTesting, printNumberACT] = ConfidenceTesting(modelPerformance,'Actual',criticalNumber2);
+    % Error Convergence
+    [ActualErrorConvergence, printNumberAEC] = ErrorConvergence(modelPerformance,'Actual',criticalNumber3);
+    % Error Agreement    
+    [ActualErrorAgreement, printNumberAEA] = ErrorAgreement(modelPerformance,'Actual',criticalNumber4);
+
+    % V2
+    % Guarantee of Point Quality
+    [V2Guarantee, printNumberVG] = Guarantee(modelPerformance,'V2',criticalNumber1);
+    % Confidence Testing
+    [V2ConfidenceTesting, printNumberVCT] = ConfidenceTesting(modelPerformance,'V2',criticalNumber2);
+    % Error Convergence
+    [V2ErrorConvergence, printNumberVEC] = ErrorConvergence(modelPerformance,'V2',criticalNumber3);
+    
+    % Plotting
+    % Number of iterations from simulation run
+    iteration = modelPerformance.n;
+    DeviationIteration = iteration;
+    DeviationIteration(1) = [];
 
     figure(10)
     row = 4-str2double(SurfB(5));
@@ -393,15 +456,31 @@ for i = 1:size(dirnames,1)
         col=3;
     end
     subplotnum = 3*(row-1)+col;
-    subplot(3,3,subplotnum)
+    nexttile(subplotnum)
+    title(SurfB(1:6))
     ys = [0 1 2]+4*(method-1);
-    scatter([printNumberIG printNumberICT printNumberIEC],ys,45,[0.8500 0.3250 0.0980],'filled','o')
-    scatter([printNumberAG printNumberACT printNumberAEC],ys,45,[0.9290 0.6940 0.1250],'o')
-    scatter([printNumberVG printNumberVCT printNumberVEC],ys,45,[0.4940 0.1840 0.5560],'*')
+    msize=100;
+    scatter([printNumberIG printNumberICT printNumberIEC],ys,msize,[0.8500 0.3250 0.0980],'filled','o','MarkerFaceAlpha',0.2)
+    scatter([printNumberIG printNumberICT printNumberIEC],ys,msize,[0.8500 0.3250 0.0980],'o','LineWidth',1)
+    scatter([printNumberIG printNumberICT printNumberIEC],ys,5,[0.8500 0.3250 0.0980],'.')
+    scatter([printNumberAG printNumberACT printNumberAEC],ys,msize,[0.9290 0.6940 0.1250],'filled','^','MarkerFaceAlpha',0.2)
+    scatter([printNumberAG printNumberACT printNumberAEC],ys,msize,[0.9290 0.6940 0.1250],'^','LineWidth',1)
+    scatter([printNumberAG printNumberACT printNumberAEC],ys,5,[0.9290 0.6940 0.1250],'.')
+    scatter([printNumberVG printNumberVCT printNumberVEC],ys,msize,[0.4940 0.1840 0.5560],'filled','square','MarkerFaceAlpha',0.2)
+    scatter([printNumberVG printNumberVCT printNumberVEC],ys,msize,[0.4940 0.1840 0.5560],'square','LineWidth',1)
+    scatter([printNumberVG printNumberVCT printNumberVEC],ys,5,[0.4940 0.1840 0.5560],'.')
 end
+fig = gcf;
+Lgnd = legend('','Ideal','','','Actual','','','V2','Orientation','horizontal');
+Lgnd.Location = 'Layout';
+Lgnd.Layout.Tile = 'South';
+fontsize('scale',1.5)
 
+saveas(figure(10),strcat(basepath,'StoppingCriteriaComp.fig'))
+exportgraphics(figure(10),strcat(basepath,'StoppingCriteriaComp.png'))
+exportgraphics(figure(10),strcat(basepath,'StoppingCriteriaComp.eps'))
 
-%% Stopping Criteria Figures
+%% Method Comparison Figure
 clc; clear; close all;
 
 % Load data
@@ -410,7 +489,7 @@ basepath = "Data/Results/20250417_SimStudy3/";
 dirnames = dir(basepath+"*sim*");
 
 figure(10);
-set(gcf, 'Name', 'Criteria Tuning Helper','WindowStyle', 'normal','Position',[0 0 640 420],'Color','white');
+set(gcf, 'Name', 'Method Comparison','WindowStyle', 'normal','Position',[0 0 640 420],'Color','white');
 hold on
 yticks([0 1 2 4 5 6 8 9 10 11])
 yticklabels(["1A","1B","1C","2A","2B","2C","3A","3B","3C",''])
@@ -429,9 +508,9 @@ for i = 1:size(dirnames,1)
     load(fname, 'modelPerformance','n','SurfB','method');
 
     % Error Metrics
-    
-    [IdealGuarantee, printNumberIG] = MiniCriteria(modelPerformance,0.165/3);
-
+    ns{i}=modelPerformance.n;
+    [IdealGuarantee{i}, printNumberIGs{i}] = MiniCriteria(modelPerformance,0.165/3);
+    printNumberIG=printNumberIGs{i};
     figure(10)
     row_maj = str2double(SurfB(5));
     if SurfB(6)=='a'
@@ -456,6 +535,6 @@ end
 legend('','Method 1','','','','','','','','','','','','','','','','','','Method 2','','Method 3','Location','eastoutside')
 fontsize('scale',1.5)
 
-saveas(figure(10),strcat(basepath,'ConvergenceSummary.fig'))
-saveas(figure(10),strcat(basepath,'ConvergenceSummary.png'))
-saveas(figure(10),strcat(basepath,'ConvergenceSummary.eps'))
+% saveas(figure(10),strcat(basepath,'ConvergenceSummary.fig'))
+% exportgraphics(figure(10),strcat(basepath,'ConvergenceSummary.png'))
+% exportgraphics(figure(10),strcat(basepath,'ConvergenceSummary.eps'))
