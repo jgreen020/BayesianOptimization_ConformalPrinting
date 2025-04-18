@@ -85,6 +85,9 @@ if doaprint
     word='TCS';
 else
     % Find all the points in the CT data closest to the selected points
+    if ~exist('bulk','var')
+    [dataB, ~, nameB]=importCTdata(SurfB,y_lim,x_lim,pad);
+    end
     [initindex, dist]=dsearchn(table2array(dataB(:,{'x','y'})),[xt yt]);
     xt=table2array(dataB(initindex,'x'));
     yt=table2array(dataB(initindex,'y'));

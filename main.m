@@ -1,7 +1,7 @@
 %% main.m
 % Authors: Jake Colwell and Zyaire Howard
 % Created: January 15, 2025
-% Last Major Modification: March 14, 2025
+% Last Major Modification: April 17, 2025
 % Fit a model of a surface to a sparse point cloud and generate a path to be printed
 % Accompanies the paper: (INSERT DOI AFTER PUBLISHING)
 % Reccomended toolboxes: Deep Learning Toolbox, Parallel Computing Toolbox
@@ -9,9 +9,9 @@
 % This is a massive Frankenstein's monster of code that combines 3 different
 % surface mapping methods including:
 %   (1) Fitting Bezier surfaces (based on methods from [1])
-%   (2) Bayesian Optimization with explorative aquistion functions and 
-%       default priors (based on methods from [2] and functions from [3])
-%   (3) Bayesian Optimization with priors trained on CT scanned data of 
+%   (2) Bayesian Experiment with default priors (based on methods from [2] 
+%       and functions from [3])
+%   (3) Bayesian Experiment with priors trained on CT scanned data of 
 %       other surfaces (expanding upon [2])
 % as well as settings to enable/disable certain functions of the code:
 %   (1) doaprint: Controls if the current run to be simulated using the CT
@@ -21,7 +21,7 @@
 %       variables from the workspace except figures and loaded data will be
 %       saved to a .m file, all figures will be saved as .fig, .png, and .eps, 
 %       the visual plots of the optimization will be saved to .tiff stacks,
-%       and the command window çlog will be saved to a .txt file
+%       and the command window log will be saved to a .txt file
 %   (3) bulk: is not set directly in Inputs.m or main.m, but can be created
 %       in an external script in order to allow the user to run main.m or 
 %       Inputs.m inside of a loop without clearing important variables. This
@@ -225,10 +225,11 @@ elseif method==4
 end
 
 % Initialize tables to store model performance metrics at each iteration
-Train = table(zeros(m,1),zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'MaxAE','ME','MAE','RMSE'});
-CV = table(zeros(m,1),zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'MaxAE','ME','MAE','RMSE'});
-Test = table(zeros(m,1),zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'MaxAE','ME','MAE','RMSE'});
+Train = table(zeros(m,1),zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'pv','ME','MAE','RMSE'});
+CV = table(zeros(m,1),zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'pv','ME','MAE','RMSE'});
+Test = table(zeros(m,1),zeros(m,1),zeros(m,1),zeros(m,1),'VariableNames',{'pv','ME','MAE','RMSE'});
 modelPerformance=table(Train, CV, Test, zeros(m,1),zeros(m,1),'VariableNames',{'Train','CV','Test','MaxCIWidth','C-RMSE'});
+modelPerformance(n,:).("C-RMSE")=NaN;
 
 % Create a figure to plot too
 if method~=1 || savedata==true
@@ -297,22 +298,26 @@ if method==1
         cvError=cvError(:);
         cvabsError = abs(cvError);
         alldata=dataB; % This assignment avoids a warning about broadcast variable
+        if ~doaprint
         testdata=alldata(setdiff(1:size(dataB,1),initialsampling{iter}.initindex),:);
+        else
+        testdata=alldata;
+        end
         testError = fB_p{iter}(table2array(testdata(:,{'x','y'})))-testdata.z;
         testabsError = abs(testError);
-        fB2=fB % This assignment avoids a warning about broadcast variable
+        fB2=fB; % This assignment avoids a warning about broadcast variable
         plotabsError{iter}=abs(fB(xBp,yBp)-zBp{iter});
         
         % Calculate Metrics
-        modelPerformance(iter,:).Train.MaxAE = max(trainabsError);
+        modelPerformance(iter,:).Train.pv = max(trainabsError);
         modelPerformance(iter,:).Train.ME = mean(trainError);
         modelPerformance(iter,:).Train.MAE = mean(trainabsError);
         modelPerformance(iter,:).Train.RMSE = std(trainError);
-        modelPerformance(iter,:).CV.MaxAE = max(cvabsError);
+        modelPerformance(iter,:).CV.pv = max(cvabsError);
         modelPerformance(iter,:).CV.ME = mean(cvError);
         modelPerformance(iter,:).CV.MAE = mean(cvabsError);
         modelPerformance(iter,:).CV.RMSE = std(cvError);
-        modelPerformance(iter,:).Test.MaxAE = max(testabsError);
+        modelPerformance(iter,:).Test.pv = max(testabsError);
         modelPerformance(iter,:).Test.ME = mean(testError);
         modelPerformance(iter,:).Test.MAE = mean(testabsError);
         modelPerformance(iter,:).Test.RMSE = std(testError);
@@ -396,21 +401,6 @@ elseif method==2 || method==3
         prediction=table(xd,yd,'VariableNames',{'x','y'});
         [zBpl,zBpsd,zBpCI] = predict(gprMdlB,prediction,'Alpha',0.1);
 
-        if iter~=m
-            % Find a new point to test
-            newpt=table2array(A(prediction,testpoints(:,1:2),gprMdls{iter}));
-            
-            % Observe it and add it to the training data
-            testpoints(iter+1,1:2)=newpt(1:2);
-            if doaprint
-                % TCS ON MRD
-                testpoints(iter+1,3)=mrdtcs(newpt(1), newpt(2));
-                t(iter)=toc(timer);
-            else
-                testpoints(iter+1,:)=table2array(dataB(dsearchn(table2array(dataB(:,{'x','y'})),newpt),:));
-            end
-        end
-
         zBp{iter}=reshape(zBpl,res_s,res_s);
     
         % Caluculate the lower and upper bounding surfaces from the coinfidence interval
@@ -427,9 +417,9 @@ elseif method==2 || method==3
             train_cv=train((1:iter)~=i,:);
             % Train a GPR on surface B
             if method == 2 && isempty(gprMdl_prior)
-                gprMdlB_cv = fitrgp(train,'z');
+                gprMdlB_cv = fitrgp(train_cv,'z');
             else
-                gprMdlB_cv = fitrgp(train,'z', ...
+                gprMdlB_cv = fitrgp(train_cv,'z', ...
                     'Basis',gprMdl_prior.BasisFunction,...
                     'Beta',gprMdl_prior.Beta,...
                     'Sigma',gprMdl_prior.Sigma,...
@@ -446,26 +436,47 @@ elseif method==2 || method==3
         trainabsError = abs(trainError);
         plotabsError{iter}=abs(zBp{iter}-zB);
         cvabsError = abs(cvError);
-        testdata=dataB(setdiff(1:size(dataB,1),initindex),:);
+        if ~doaprint
+        testdata=dataB(setdiff(1:size(dataB,1),initialsampling{iter}.initindex),:);
+        else
+        testdata=dataB;
+        end
         testError = table2array(predict(gprMdlB,testdata(:,{'x','y'}))-testdata(:,'z'));
         testabsError = abs(testError);
 
         % Calculate metrics
-        modelPerformance.Train.MaxAE(iter) = max(trainabsError);
+        modelPerformance.Train.pv(iter) = max(trainabsError);
         modelPerformance.Train.ME(iter) = mean(trainError);
         modelPerformance.Train.MAE(iter) = mean(trainabsError);
         modelPerformance.Train.RMSE(iter) = std(trainError);
-        modelPerformance.CV.MaxAE(iter) = max(cvabsError);
+        modelPerformance.CV.pv(iter) = max(cvabsError);
         modelPerformance.CV.ME(iter) = mean(cvError);
         modelPerformance.CV.MAE(iter) = mean(cvabsError);
         modelPerformance.CV.RMSE(iter) = std(cvError);
-        modelPerformance.Test.MaxAE(iter) = max(testabsError);
+        modelPerformance.Test.pv(iter) = max(testabsError);
         modelPerformance.Test.ME(iter) = mean(testError);
         modelPerformance.Test.MAE(iter) = mean(testabsError);
         modelPerformance.Test.RMSE(iter) = std(testError);
         modelPerformance.MaxCIWidth(iter) = max(abs((zBpCI(:,2)-zBpCI(:,1))/2));
         if ~isempty(zBp{iter-1})
         modelPerformance.("C-RMSE")(iter)=rmse(zBp{iter},zBp{iter-1},'all');
+        end
+        
+        if iter~=m
+            % Find a new point to test
+            newpt=table2array(A(prediction,testpoints(:,1:2),gprMdls{iter}));
+            
+            % Observe it and add it to the training data
+            testpoints(iter+1,1:2)=newpt(1:2);
+            if doaprint
+                % TCS ON MRD
+                testpoints(iter+1,3)=mrdtcs(newpt(1), newpt(2));
+                t(iter)=toc(timer);
+            else
+                newpt_id=dsearchn(table2array(dataB(:,{'x','y'})),newpt);
+                testpoints(iter+1,:)=table2array(dataB(newpt_id,:));
+                initindex = [initindex; newpt_id];
+            end
         end
 
         % Record and display information
@@ -502,7 +513,7 @@ elseif method==2 || method==3
         e=colorbar;
         e.Label.String='Absolute Error (mm)';
         clim([0 cmax])
-        title({strcat('Bayesian Optimization, n=',num2str(iter))}) 
+        title({strcat('Bayesian Experiment, n=',num2str(iter))}) 
         if iter~=m
         legend('Tested Points','Next Point to Test','Mean GPR Prediction','99% CI','Orientation','horizontal','Location','southoutside')
         elseif iter==m
@@ -645,6 +656,22 @@ elseif method==4
     testpoints=initialsampling{iter}.testpoints;
 end
 
+if method == 1
+modelPerformance.n = ((1:m).^2)';
+modelPerformance = modelPerformance(modelPerformance.n>=n^2,:);
+elseif method == 2 || method == 3
+modelPerformance.n = (1:m)';
+modelPerformance = modelPerformance(modelPerformance.n>=n,:);
+end
+
+if method == 1
+modelPerformance.n = ((1:m).^2)';
+modelPerformance = modelPerformance(modelPerformance.n>=n^2,:);
+elseif method == 2 || method == 3
+modelPerformance.n = (1:m)';
+modelPerformance = modelPerformance(modelPerformance.n>=n,:);
+end
+
 %% Curve Mapping
 % Create the desired curve
 [u_c, v_c] = Curve(linspace(0, 1, res_c+1)');
@@ -678,13 +705,8 @@ end
 close all
 fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tCreating Plots ...\n'])
 
-if method == 4 || n==m
-    l=1:4;
-else
-    l=1:6;
-end
-
-for l=l
+f=gobjects(6,1);
+for l=1:size(f,1)
     if ~savedata
         f(l)=figure('WindowStyle','docked');
     else
@@ -843,34 +865,25 @@ if n~=m
 figure(f(5))
 subplot(2,2,1)
 hold on
-if method == 1
-    pts=(n:m).^2;
-    idxs=n:m;
-elseif method == 2 || method == 3
-    pts=n:m;
-    idxs=n:m;
-elseif method == 4
-    pts=(sqrt(n):sqrt(m)).^2;
-    idxs=(sqrt(n):sqrt(m)).^2;
-end
-errmat=[table2array(modelPerformance.Train(:,{'MAE','MaxAE','RMSE'})),table2array(modelPerformance.Test(:,{'MAE','MaxAE','RMSE'})),table2array(modelPerformance.CV(:,{'MAE','MaxAE','RMSE'})),modelPerformance.MaxCIWidth];
+
+errmat=[table2array(modelPerformance.Train(:,{'MAE','pv','RMSE'})),table2array(modelPerformance.Test(:,{'MAE','pv','RMSE'})),table2array(modelPerformance.CV(:,{'MAE','pv','RMSE'})),modelPerformance.MaxCIWidth];
 errmax=10^ceil(log10(max(errmat(errmat~=0),[],'all')));
 errmin=10^floor(log10(min(errmat(errmat~=0),[],'all')));
-axvec=[min(pts) max(pts) errmin errmax];
-plot(pts,(modelPerformance.Test.MaxAE(idxs)),'Color',[0.8500 0.3250 0.0980],'LineStyle','-','LineWidth',2)
-plot(pts,(modelPerformance.Train.MaxAE(idxs)),'Color',[0.8500 0.3250 0.0980],'LineStyle','--','LineWidth',2)
-plot(pts,(modelPerformance.CV.MaxAE(idxs)),'Color',[0.8500 0.3250 0.0980],'LineStyle',':','LineWidth',2)
+axvec=[min(modelPerformance.n) max(modelPerformance.n) errmin errmax];
+plot(modelPerformance.n,modelPerformance.Test.pv,'Color',[0.8500 0.3250 0.0980],'LineStyle','-','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.Train.pv,'Color',[0.8500 0.3250 0.0980],'LineStyle','--','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.CV.pv,'Color',[0.8500 0.3250 0.0980],'LineStyle',':','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
-legend('MaxAE_{test}','MaxAE_{train}','MaxAE_{CV}','Location','southoutside','Orientation','horizontal') 
+legend('pv_{test}','pv_{train}','pv_{CV}','Location','southoutside','Orientation','horizontal') 
 ylabel({'Maximum Absolute Error','(mm)'})
 axis(axvec)
 
 subplot(2,2,2)
 hold on
-plot(pts,(modelPerformance.Test.MAE(idxs)),'Color',[0.9290 0.6940 0.1250],'LineStyle','-','LineWidth',2)
-plot(pts,(modelPerformance.Train.MAE(idxs)),'Color',[0.9290 0.6940 0.1250],'LineStyle','--','LineWidth',2)
-plot(pts,(modelPerformance.CV.MAE(idxs)),'Color',[0.9290 0.6940 0.1250],'LineStyle',':','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.Test.MAE,'Color',[0.9290 0.6940 0.1250],'LineStyle','-','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.Train.MAE,'Color',[0.9290 0.6940 0.1250],'LineStyle','--','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.CV.MAE,'Color',[0.9290 0.6940 0.1250],'LineStyle',':','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
 legend('MAE_{test}','MAE_{train}','MAE_{CV}','Location','southoutside','Orientation','horizontal') 
@@ -879,10 +892,10 @@ axis(axvec)
 
 subplot(2,2,3)
 hold on
-plot(pts,(modelPerformance.Test.RMSE(idxs)),'Color',[0.4940 0.1840 0.5560],'LineStyle','-','LineWidth',2)
-plot(pts,(modelPerformance.Train.RMSE(idxs)),'Color',[0.4940 0.1840 0.5560],'LineStyle','--','LineWidth',2)
-plot(pts,(modelPerformance.CV.RMSE(idxs)),'Color',[0.4940 0.1840 0.5560],'LineStyle',':','LineWidth',2)
-plot(pts(2:end),(modelPerformance.("C-RMSE")(idxs(2:end))),'Color',[0.4660 0.6740 0.1880],'LineStyle','-.','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.Test.RMSE,'Color',[0.4940 0.1840 0.5560],'LineStyle','-','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.Train.RMSE,'Color',[0.4940 0.1840 0.5560],'LineStyle','--','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.CV.RMSE,'Color',[0.4940 0.1840 0.5560],'LineStyle',':','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.("C-RMSE"),'Color',[0.4660 0.6740 0.1880],'LineStyle','-.','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
 legend('RMSE_{test}','RMSE_{train}','RMSE_{CV}','C-RMSE','Location','southoutside','Orientation','horizontal') 
@@ -891,7 +904,7 @@ axis(axvec)
 
 subplot(2,2,4)
 hold on
-plot(pts,(modelPerformance.MaxCIWidth(idxs)),'Color',[0.3010 0.7450 0.9330],'LineStyle','-','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.MaxCIWidth,'Color',[0.3010 0.7450 0.9330],'LineStyle','-','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
 legend('Maximum CI Width','Location','southoutside','Orientation','horizontal') 
@@ -908,25 +921,27 @@ han.YLabel.Visible='on';
 xlabel(han,'Number of Points (n)')
 title(han,'Model Performance Evaluation')
 fontsize(gcf, scale=1.5)
+end
 
 % Figure 6 Error Metric Plot
+if n~=m
 figure(f(6))
 hold on
-plot(pts,(modelPerformance.Test.MaxAE(idxs)),'Color',[0.8500 0.3250 0.0980],'LineStyle','-','LineWidth',2)
-plot(pts,(modelPerformance.Train.MaxAE(idxs)),'Color',[0.8500 0.3250 0.0980],'LineStyle','--','LineWidth',2)
-plot(pts,(modelPerformance.CV.MaxAE(idxs)),'Color',[0.8500 0.3250 0.0980],'LineStyle',':','LineWidth',2)
-plot(pts,(modelPerformance.Test.MAE(idxs)),'Color',[0.9290 0.6940 0.1250],'LineStyle','-','LineWidth',2)
-plot(pts,(modelPerformance.Train.MAE(idxs)),'Color',[0.9290 0.6940 0.1250],'LineStyle','--','LineWidth',2)
-plot(pts,(modelPerformance.CV.MAE(idxs)),'Color',[0.9290 0.6940 0.1250],'LineStyle',':','LineWidth',2)
-plot(pts,(modelPerformance.Test.RMSE(idxs)),'Color',[0.4940 0.1840 0.5560],'LineStyle','-','LineWidth',2)
-plot(pts,(modelPerformance.Train.RMSE(idxs)),'Color',[0.4940 0.1840 0.5560],'LineStyle','--','LineWidth',2)
-plot(pts,(modelPerformance.CV.RMSE(idxs)),'Color',[0.4940 0.1840 0.5560],'LineStyle',':','LineWidth',2)
-plot(pts,(modelPerformance.MaxCIWidth(idxs)),'Color',[0.3010 0.7450 0.9330],'LineStyle','-','LineWidth',2)
-plot(pts(2:end),(modelPerformance.("C-RMSE")(idxs(2:end))),'Color',[0.4660 0.6740 0.1880],'LineStyle','-.','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.Test.pv,'Color',[0.8500 0.3250 0.0980],'LineStyle','-','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.Train.pv,'Color',[0.8500 0.3250 0.0980],'LineStyle','--','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.CV.pv,'Color',[0.8500 0.3250 0.0980],'LineStyle',':','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.Test.MAE,'Color',[0.9290 0.6940 0.1250],'LineStyle','-','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.Train.MAE,'Color',[0.9290 0.6940 0.1250],'LineStyle','--','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.CV.MAE,'Color',[0.9290 0.6940 0.1250],'LineStyle',':','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.Test.RMSE,'Color',[0.4940 0.1840 0.5560],'LineStyle','-','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.Train.RMSE,'Color',[0.4940 0.1840 0.5560],'LineStyle','--','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.CV.RMSE,'Color',[0.4940 0.1840 0.5560],'LineStyle',':','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.MaxCIWidth,'Color',[0.3010 0.7450 0.9330],'LineStyle','-','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.("C-RMSE"),'Color',[0.4660 0.6740 0.1880],'LineStyle','-.','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
 axis(axvec)
-legend('MaxAE_{test}','MaxAE_{train}','MaxAE_{CV}','MAE_{test}','MAE_{train}','MAE_{CV}',...
+legend('pv_{test}','pv_{train}','pv_{CV}','MAE_{test}','MAE_{train}','MAE_{CV}',...
     'RMSE_{test}','RMSE_{train}','RMSE_{CV}','Maximum CI Width','C-RMSE','NumColumns',4,'Location','southoutside') 
 xlabel('Number of Points (n)')
 ylabel('Metric Value (mm)')
