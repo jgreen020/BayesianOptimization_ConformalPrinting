@@ -93,10 +93,10 @@ end
 % Import CT scan data and/or trained network, but only if not doing a bulk run to save time
 if ~exist('bulk','var')
 fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tImporting Surface B ...\n'])
-[dataB, fB, nameB]=importCTdata(SurfB,y_lim,x_lim,pad);
+[dataB, fB, nameB]=importCTdata(SurfB,y_lim,x_lim,pad,res_s);
 if method==3
 fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tImporting Surface A ...\n'])
-[dataA, fA, nameA]=importCTdata(SurfA,y_lim,x_lim,pad);
+[dataA, fA, nameA]=importCTdata(SurfA,y_lim,x_lim,pad,res_s);
 end
 if method==4
 fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tImporting Network ...\n'])
@@ -106,11 +106,6 @@ end
 
 %% Calculations
 fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tPerforming Initial Calculations ...\n'])
-
-% Break out the x and y mins and maxes for readability
-x_min = min(x_lim); x_max = max(x_lim); x_rng=x_max-x_min;
-y_min = min(y_lim); y_max = max(y_lim); y_rng=y_max-y_min;
-z_min = -10; z_max=20; z_rng=z_min-z_max;
 
 % Generate high-resolution x and y vectors for surface plotting
 x=linspace(x_min+pad, x_max-pad, res_s);
@@ -235,9 +230,6 @@ modelPerformance(n,:).("C-RMSE")=NaN;
 if method~=1 || savedata==true
 f(1)=figure('units','normal','position',[0 .5 .6 .5]);
 end
-
-%FIX THIS 
-iter2=iter;
     
 % Enter the main loop
 fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tEntering the main loop ...\n'])
@@ -384,7 +376,6 @@ elseif method==2 || method==3
         % Train a GPR on surface B
         gprMdl_prior=gprMdls{iter-1};
         if method == 2 && isempty(gprMdl_prior)
-           
             gprMdlB = fitrgp(train,'z');
         else
             gprMdlB = fitrgp(train,'z', ...
@@ -437,7 +428,7 @@ elseif method==2 || method==3
         plotabsError{iter}=abs(zBp{iter}-zB);
         cvabsError = abs(cvError);
         if ~doaprint
-        testdata=dataB(setdiff(1:size(dataB,1),initialsampling{iter}.initindex),:);
+        testdata=dataB(setdiff(1:size(dataB,1),initindex),:);
         else
         testdata=dataB;
         end
@@ -569,9 +560,11 @@ elseif method==4
         image = sparse(idx_x,idx_y,rescale(initialsampling{iter}.testpoints(:,3)),res_im,res_im);
         
         % Predict the output
-        pred_all=double(rescale(predict(trained_net,full(image)),min(initialsampling{iter}.testpoints(:,3)),max(initialsampling{iter}.testpoints(:,3))));
-        pred_full=pred_all(:,:,1)';
-        pred{iter}=reshape(pred_full,[],1);
+        pred_all=predict(trained_net,full(image));
+        pred_im=pred_all(:,:,1)';
+        pred_surf=double(rescale(pred_im,min(initialsampling{iter}.testpoints(:,3)),max(initialsampling{iter}.testpoints(:,3)),"InputMax",1,"InputMin",0));
+        
+        pred{iter}=reshape(pred_surf,[],1);
 
         % Predict surface at higher resolution
         x_im=linspace(x_min+pad,x_max-pad,res_im);
@@ -589,15 +582,15 @@ elseif method==4
         plotabsError{iter}=abs(fB(xBp,yBp)-zBp{iter});
         
         % Calculate Metrics
-        modelPerformance(iter,:).Train.MaxAE = max(trainabsError);
+        modelPerformance(iter,:).Train.pv = max(trainabsError);
         modelPerformance(iter,:).Train.ME = mean(trainError);
         modelPerformance(iter,:).Train.MAE = mean(trainabsError);
         modelPerformance(iter,:).Train.RMSE = std(trainError);
-        modelPerformance(iter,:).CV.MaxAE = NaN;
+        modelPerformance(iter,:).CV.pv = NaN;
         modelPerformance(iter,:).CV.ME = NaN;
         modelPerformance(iter,:).CV.MAE = NaN;
         modelPerformance(iter,:).CV.RMSE = NaN;
-        modelPerformance(iter,:).Test.MaxAE = max(testabsError);
+        modelPerformance(iter,:).Test.pv = max(testabsError);
         modelPerformance(iter,:).Test.ME = mean(testError);
         modelPerformance(iter,:).Test.MAE = mean(testabsError);
         modelPerformance(iter,:).Test.RMSE = std(testError);
@@ -606,9 +599,7 @@ elseif method==4
         modelPerformance.("C-RMSE")(iter)=rmse(zBp{iter},zBp{lastiter},'all');
         end
         lastiter=iter;
-    end
-    for iter=iter2
-        if savedata
+
         % Plot surface to make animation
         figure(f(1))
         % Test points on Surface B
@@ -633,7 +624,8 @@ elseif method==4
         fontsize(f(1), scale=2)
         hold off
         drawnow
-
+        
+        if savedata
         %Save frame to an image stack
         frame = getframe(f(1));
         im = frame2im(frame);
@@ -649,7 +641,6 @@ elseif method==4
         clear im imind cm frame
         end
     end
-    iter=max(iter);
     zBp_all=zBp;
     zBp=zBp{iter};
     plotabsError=plotabsError{iter};
@@ -662,15 +653,11 @@ modelPerformance = modelPerformance(modelPerformance.n>=n^2,:);
 elseif method == 2 || method == 3
 modelPerformance.n = (1:m)';
 modelPerformance = modelPerformance(modelPerformance.n>=n,:);
+elseif method == 4
+modelPerformance.n = (1:m)';
+modelPerformance = modelPerformance(any(table2array(modelPerformance.Train)~=0,2),:);
 end
 
-if method == 1
-modelPerformance.n = ((1:m).^2)';
-modelPerformance = modelPerformance(modelPerformance.n>=n^2,:);
-elseif method == 2 || method == 3
-modelPerformance.n = (1:m)';
-modelPerformance = modelPerformance(modelPerformance.n>=n,:);
-end
 
 %% Curve Mapping
 % Create the desired curve
@@ -705,12 +692,14 @@ end
 close all
 fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tCreating Plots ...\n'])
 
-f=gobjects(6,1);
+if size(modelPerformance,1)==1; fignum=4; else; fignum=6; end
+
+f=gobjects(fignum,1);
 for l=1:size(f,1)
     if ~savedata
         f(l)=figure('WindowStyle','docked');
     else
-        f(l)=figure(figure('units','normalized','Position',[mod(l-1,3)/3 floor((l-1)/3)*3 1/2 3/4]));
+        f(l)=figure(figure('Position',[250*(l-1) 600 750 750]));
     end
 end
 
@@ -866,13 +855,13 @@ figure(f(5))
 subplot(2,2,1)
 hold on
 
-errmat=[table2array(modelPerformance.Train(:,{'MAE','pv','RMSE'})),table2array(modelPerformance.Test(:,{'MAE','pv','RMSE'})),table2array(modelPerformance.CV(:,{'MAE','pv','RMSE'})),modelPerformance.MaxCIWidth];
+errmat=[table2array(modelPerformance.Train(:,{'MAE','pv','RMSE'})),table2array(modelPerformance.Test(:,{'MAE','pv','RMSE'})),table2array(modelPerformance.CV(:,{'MAE','pv','RMSE'})),modelPerformance.MaxCIWidth,modelPerformance.("C-RMSE")];
 errmax=10^ceil(log10(max(errmat(errmat~=0),[],'all')));
 errmin=10^floor(log10(min(errmat(errmat~=0),[],'all')));
 axvec=[min(modelPerformance.n) max(modelPerformance.n) errmin errmax];
-plot(modelPerformance.n,modelPerformance.Test.pv,'Color',[0.8500 0.3250 0.0980],'LineStyle','-','LineWidth',2)
-plot(modelPerformance.n,modelPerformance.Train.pv,'Color',[0.8500 0.3250 0.0980],'LineStyle','--','LineWidth',2)
-plot(modelPerformance.n,modelPerformance.CV.pv,'Color',[0.8500 0.3250 0.0980],'LineStyle',':','LineWidth',2)
+plot(modelPerformance.n,modelPerformance.Test.pv,'Color',[0.8500 0.3250 0.0980],'LineStyle','-','LineWidth',2,'Marker','.')
+plot(modelPerformance.n,modelPerformance.Train.pv,'Color',[0.8500 0.3250 0.0980],'LineStyle','--','LineWidth',2,'Marker','.')
+plot(modelPerformance.n,modelPerformance.CV.pv,'Color',[0.8500 0.3250 0.0980],'LineStyle',':','LineWidth',2,'Marker','.')
 set(gca,'YScale','log')
 set(gca,'XScale','log')
 legend('pv_{test}','pv_{train}','pv_{CV}','Location','southoutside','Orientation','horizontal') 
@@ -898,7 +887,7 @@ plot(modelPerformance.n,modelPerformance.CV.RMSE,'Color',[0.4940 0.1840 0.5560],
 plot(modelPerformance.n,modelPerformance.("C-RMSE"),'Color',[0.4660 0.6740 0.1880],'LineStyle','-.','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
-legend('RMSE_{test}','RMSE_{train}','RMSE_{CV}','C-RMSE','Location','southoutside','Orientation','horizontal') 
+legend('RMSE_{test}','RMSE_{train}','RMSE_{CV}','C-RMSE','Location','southoutside','NumColumns',3) 
 ylabel({'Root Mean Square Error', '(mm)'})
 axis(axvec)
 
@@ -910,7 +899,7 @@ set(gca,'XScale','log')
 legend('Maximum CI Width','Location','southoutside','Orientation','horizontal') 
 ylabel({'Maximum 90% Confidence', 'Interval Width (mm)'})
 axis(axvec)
-if method==1
+if method==1 || method == 4
     text(10^mean(log10(axvec(1:2))),10^mean(log10(axvec(3:4))),'N/A','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',30)
 end
 
@@ -955,7 +944,7 @@ if savedata
         exportgraphics(f(figiter),strcat(fname,"_f",num2str(figiter),".eps"))
         exportgraphics(f(figiter),strcat(fname,"_f",num2str(figiter),".png"))
     end
-    save(strcat(fname,'.mat'),'-regexp','^(?!(f.?|data.)$).')
+    save(strcat(fname,'.mat'),'-regexp','^(?!(f.?|data.)$).', '-v7.3')
 end
 elapsedtime = toc(timer);
 fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tDone :)\nCompleted: ',...

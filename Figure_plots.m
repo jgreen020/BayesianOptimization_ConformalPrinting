@@ -509,7 +509,7 @@ for i = 1:size(dirnames,1)
 
     % Error Metrics
     ns{i}=modelPerformance.n;
-    [IdealGuarantee{i}, printNumberIGs{i}] = MiniCriteria(modelPerformance,0.165/3);
+    [IdealGuarantee{i}, printNumberIGs{i}] = MiniCriteria(modelPerformance,0.165/4.5);
     printNumberIG=printNumberIGs{i};
     figure(10)
     row_maj = str2double(SurfB(5));

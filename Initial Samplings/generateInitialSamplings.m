@@ -41,7 +41,6 @@ elseif method==2 || method==3
     type=2;
     
     % Generate and scramble a semi-random Sobol sequence to sample Surface A
-    rng(1)
     p = sobolset(2,'Skip',1e3,'Leap',1e2); 
     p = scramble(p,'MatousekAffineOwen');
     % Scale values from [0,1] to the size of the surface
@@ -55,9 +54,8 @@ elseif method==2 || method==3
 elseif method==4
     % Type 2, Sobol Sampling for Images
     type=3;
-    hey dummy make sure no points get double sampled
+    %hey dummy make sure no points get double sampled
     % Generate and scramble a semi-random Sobol sequence
-    rng(1)
     p = sobolset(2,'Skip',1e3,'Leap',1e2); 
     p = scramble(p,'MatousekAffineOwen');
     % Scale values from [0,1] to the size of the surface
