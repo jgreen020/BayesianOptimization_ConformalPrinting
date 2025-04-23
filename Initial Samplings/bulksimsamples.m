@@ -17,7 +17,7 @@ Inputs
 for i=1:length(surfnames)
     % Import the surface data
     SurfB=surfnames{i};
-    [dataB, fB, nameB]=importCTdata(SurfB,y_lim,x_lim,pad);
+    [dataB, fB, nameB]=importCTdata(SurfB,y_lim,x_lim,pad,res_s);
     
     % Calculate all initial samplings for Method 1
     method=1;

@@ -15,7 +15,7 @@
 
 %% Inputs
 % Global Settings
-res_s = 500; % Resolution of Plotted Surfaces (number of points in one direction)
+res_s = 300; % Resolution of Plotted Surfaces (number of points in one direction)
 res_c = res_s^2; % Resolution of plotted curves
 x_lim = [-30 30]; % Range of x
 y_lim = [-30 30]; % Range of y
@@ -42,10 +42,15 @@ if ~exist('bulk','var')
         m=15; % If doing a simulation, program will test bezier fitting for n:1:m in parallel
     elseif method==2 || method==3
         n=40; % Number of points to sample before starting Bayesian Optimization
-        m=50; % Final number of points for Bayesian Optimization
+        m=80; % Final number of points for Bayesian Optimization
         A=@LCB_exp; % Aquisition Function to use
     else
         disp('ERROR: Invalid Method Number')
         return
     end
 end
+
+% Break out the x and y mins and maxes for readability
+x_min = min(x_lim); x_max = max(x_lim); x_rng=x_max-x_min;
+y_min = min(y_lim); y_max = max(y_lim); y_rng=y_max-y_min;
+z_min = -10; z_max=20; z_rng=z_min-z_max;

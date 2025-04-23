@@ -70,7 +70,7 @@ if doaprint
 else
     % Find all the points in the CT data closest to the selected points
     if ~exist('bulk','var')
-    [dataB, ~, nameB]=importCTdata(SurfB,y_lim,x_lim,pad);
+    [dataB, ~, nameB]=importCTdata(SurfB,y_lim,x_lim,pad,res_s);
     end
     [initindex, dist]=dsearchn(table2array(dataB(:,{'x','y'})),[xt yt]);
     xt=table2array(dataB(initindex,'x'));
@@ -94,6 +94,7 @@ end
 x_lim_in = x_lim;
 y_lim_in = y_lim;
 pad_in = pad;
+res_in = res_s;
 
 % Combine the data into a single array
 testpoints(1:size(xt,1),:)=[xt yt ztB];
@@ -101,4 +102,4 @@ testpoints(1:size(xt,1),:)=[xt yt ztB];
 % Save the points and sampling time to be called by main.m
 save(strcat(fullfile(pwd,'/Initial Samplings'),'/',word,'_t',num2str(type),...
     '_',nameB,'_n',num2str(n),'.mat'),"testpoints","t","sampletime",...
-    "x_lim_in","y_lim_in","pad_in","initindex") 
+    "x_lim_in","y_lim_in","pad_in","res_in","initindex") 

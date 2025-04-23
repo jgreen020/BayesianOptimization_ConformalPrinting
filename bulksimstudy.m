@@ -24,7 +24,7 @@ for safeloopvar=1:size(surfnames,2)
     method=1;
     n=3;
     m=15;
-    [dataB, fB, nameB]=importCTdata(SurfB,y_lim,x_lim,pad);
+    [dataB, fB, nameB]=importCTdata(SurfB,y_lim,x_lim,pad,res_s);
     main
 
     method=2;
@@ -43,7 +43,7 @@ for safeloopvar=1:size(surfnames,2)
         fA=fB;
         nameA=nameB;
     else
-        [dataA, fA, nameA]=importCTdata(SurfA,y_lim,x_lim,pad);
+        [dataA, fA, nameA]=importCTdata(SurfA,y_lim,x_lim,pad,res_s);
     end
     for j=1:size(AFs,2)
         A=AFs{j};

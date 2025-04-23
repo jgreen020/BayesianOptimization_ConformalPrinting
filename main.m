@@ -78,7 +78,6 @@ elseif method==2
 elseif method==3
     [~, nameA,~]=fileparts(SurfA);
     fname0=strcat(starttime,'_',nameA,'_',nameB,'_','M',num2str(method),'_',func2str(A),'_',type);
-else
 end
 fname=strcat(fullfile(pwd,'/Data'),'/Results/',fname0,'/',fname0); % Filename to write to
 
@@ -92,20 +91,15 @@ end
 % Import CT scan data, but only if not doing a bulk run to save time
 if ~exist('bulk','var')
 fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tImporting Surface B ...\n'])
-[dataB, fB, nameB]=importCTdata(SurfB,y_lim,x_lim,pad);
+[dataB, fB, nameB]=importCTdata(SurfB,y_lim,x_lim,pad,res_s);
 if method==3
 fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tImporting Surface A ...\n'])
-[dataA, fA, nameA]=importCTdata(SurfA,y_lim,x_lim,pad);
+[dataA, fA, nameA]=importCTdata(SurfA,y_lim,x_lim,pad,res_s);
 end
 end
 
 %% Calculations
 fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tPerforming Initial Calculations ...\n'])
-
-% Break out the x and y mins and maxes for readability
-x_min = min(x_lim); x_max = max(x_lim); x_rng=x_max-x_min;
-y_min = min(y_lim); y_max = max(y_lim); y_rng=y_max-y_min;
-z_min = -10; z_max=20; z_rng=z_min-z_max;
 
 % Generate high-resolution x and y vectors for surface plotting / prediction
 x=linspace(x_min+pad, x_max-pad, res_s);
@@ -146,7 +140,7 @@ load(strcat(fullfile(pwd,'/Initial Samplings'),'/',word,'_t',num2str(type),...
     '_',nameB,'_n',num2str(n),'.mat'))
 
 % Check that all the intial sampling settings match the current settings
-if all(x_lim == x_lim_in) && all(y_lim == y_lim_in) && (pad == pad_in)
+if all(x_lim == x_lim_in) && all(y_lim == y_lim_in) && (pad == pad_in) && (res_in == res_s)
     fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\t  ... Initial sampling successfully recovered.\n'])
 else
     disp(['ERROR: Inputs do not match saved sampling. Either create a new' ...
@@ -217,7 +211,8 @@ modelPerformance(n,:).("C-RMSE")=NaN;
 
 % Create a figure to plot too
 if method~=1 || savedata==true
-f(1)=figure('units','normal','position',[0 .5 .6 .5]);
+f(1)=figure('position',[1 1 950 500]);
+f(2)=figure('position',[1 501 950 500]);
 end
 
 % Enter the main loop
@@ -229,7 +224,7 @@ if method==1
         % Jafari and Gans simulation for iter=n:1:m
         initialsampling{iter} = load(strcat(fullfile(pwd,'/Initial Samplings')...
             ,'/',word,'_t',num2str(type),'_',nameB,'_n',num2str(iter),'.mat'));
-        if ~(all(x_lim == initialsampling{iter}.x_lim_in) && all(y_lim == initialsampling{iter}.y_lim_in) && (pad == initialsampling{iter}.pad_in))
+        if ~(all(x_lim == initialsampling{iter}.x_lim_in) && all(y_lim == initialsampling{iter}.y_lim_in) && (pad == initialsampling{iter}.pad_in) && (res_s == initialsampling{iter}.res_in))
             disp(['ERROR: Inputs do not match saved sampling. Either create a new' ...
                 ' sampling with these inputs or change your inputs to match the initial sampling.'])
         end
@@ -244,8 +239,21 @@ if method==1
         train_pred=bezierSurf(u,v,P_o{iter});
         test=bezierSurf(rescale(x),rescale(y),P_o{iter});
         fB_p{iter}=scatteredInterpolant(test(:,1:2),test(:,3),'natural');
-        zBp{iter}=reshape(test(:,3),res_s,res_s);
 
+        % Correct for Nozzel Width
+        if doaprint
+            testpoints_corr=tcscorrect(xBp,yBp,reshape(test(:,3),res_s,res_s),testpoints)
+            P_i=reshape(testpoints_corr,[iter, iter, 3]);
+            [P_o{iter},J]=fmincon(fun,P_i,A,B,Aeq,Beq,lb,ub,nonlin,opts);
+    
+            % Predict surface at higher resolution
+            train_pred=bezierSurf(u,v,P_o{iter});
+            test=bezierSurf(rescale(x),rescale(y),P_o{iter});
+            fB_p{iter}=scatteredInterpolant(test(:,1:2),test(:,3),'natural');
+        end
+
+        zBp{iter}=reshape(test(:,3),res_s,res_s);
+        
         % Bézier Cross-Validation
         cvError=zeros(iter-2,iter);
         zBcv=zeros((iter-2)*2,iter);
@@ -365,7 +373,6 @@ elseif method==2 || method==3
         % Train a GPR on surface B
         gprMdl_prior=gprMdls{iter-1};
         if method == 2 && isempty(gprMdl_prior)
-           
             gprMdlB = fitrgp(train,'z');
         else
             gprMdlB = fitrgp(train,'z', ...
@@ -383,7 +390,31 @@ elseif method==2 || method==3
         [zBpl,zBpsd,zBpCI] = predict(gprMdlB,prediction,'Alpha',0.1);
 
         zBp{iter}=reshape(zBpl,res_s,res_s);
-    
+        
+        if doaprint
+            testpoints_corr=tcscorrect(xBp,yBp,reshape(test(:,3),res_s,res_s),testpoints);
+            train=table(testpoints_corr(1:iter,1),testpoints_corr(1:iter,2),testpoints_corr(1:iter,3),'VariableNames',{'x', 'y','z'});
+            if method == 2 && isempty(gprMdl_prior)
+                gprMdlB = fitrgp(train,'z');
+            else
+                gprMdlB = fitrgp(train,'z', ...
+                    'Basis',gprMdl_prior.BasisFunction,...
+                    'Beta',gprMdl_prior.Beta,...
+                    'Sigma',gprMdl_prior.Sigma,...
+                    'SigmaLowerBound',max(min(gprMdl_prior.Sigma-0.001,1e-3),1e-7),...
+                    'KernelFunction',gprMdl_prior.KernelFunction,...
+                    'KernelParameters',gprMdl_prior.KernelInformation.KernelParameters);
+            end
+
+            gprMdls{iter}=gprMdlB;
+
+            % Use the GPR to predict surface B at higher resolution
+            prediction=table(xd,yd,'VariableNames',{'x','y'});
+            [zBpl,zBpsd,zBpCI] = predict(gprMdlB,prediction,'Alpha',0.1);
+
+            zBp{iter}=reshape(zBpl,res_s,res_s);
+        end
+
         % Caluculate the lower and upper bounding surfaces from the coinfidence interval
         zBpCImx{iter}=reshape(zBpCI(:,2),res_s,res_s);
         zBpCImn{iter}=reshape(zBpCI(:,1),res_s,res_s);
@@ -418,7 +449,7 @@ elseif method==2 || method==3
         plotabsError{iter}=abs(zBp{iter}-zB);
         cvabsError = abs(cvError);
         if ~doaprint
-        testdata=dataB(setdiff(1:size(dataB,1),initialsampling{iter}.initindex),:);
+        testdata=dataB(setdiff(1:size(dataB,1),initindex),:);
         else
         testdata=dataB;
         end
@@ -566,16 +597,22 @@ elseif method == 2 || method == 3
     wypts=[x_c,y_c,z_c];
 end
 
+if doaprint
+    wypts=printcorrect(xBp,yBp,zBp,wypts);
+end
+
 %% Plotting
 close all
 fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tCreating Plots ...\n'])
 
-f=gobjects(6,1);
+if size(modelPerformance,1)==1; fignum=4; else; fignum=6; end
+
+f=gobjects(fignum,1);
 for l=1:size(f,1)
     if ~savedata
         f(l)=figure('WindowStyle','docked');
     else
-        f(l)=figure(figure('units','normalized','Position',[mod(l-1,3)/3 floor((l-1)/3)*3 1/2 3/4]));
+        f(l)=figure(figure('Position',[250*(l-1) 600 750 750]));
     end
 end
 
@@ -758,10 +795,10 @@ hold on
 plot(modelPerformance.n,modelPerformance.Test.RMSE,'Color',[0.4940 0.1840 0.5560],'LineStyle','-','LineWidth',2)
 plot(modelPerformance.n,modelPerformance.Train.RMSE,'Color',[0.4940 0.1840 0.5560],'LineStyle','--','LineWidth',2)
 plot(modelPerformance.n,modelPerformance.CV.RMSE,'Color',[0.4940 0.1840 0.5560],'LineStyle',':','LineWidth',2)
-plot(modelPerformance.n,modelPerformance.("C-RMSE"),'Color',[0.4660 0.6740 0.1880],'LineStyle','-.','LineWidth',2)
+% plot(modelPerformance.n,modelPerformance.("C-RMSE"),'Color',[0.4660 0.6740 0.1880],'LineStyle','-.','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
-legend('RMSE_{test}','RMSE_{train}','RMSE_{CV}','C-RMSE','Location','southoutside','Orientation','horizontal') 
+legend('RMSE_{test}','RMSE_{train}','RMSE_{CV}','Location','southoutside','Orientation','horizontal') 
 ylabel({'Root Mean Square Error', '(mm)'})
 axis(axvec)
 
@@ -800,12 +837,12 @@ plot(modelPerformance.n,modelPerformance.Test.RMSE,'Color',[0.4940 0.1840 0.5560
 plot(modelPerformance.n,modelPerformance.Train.RMSE,'Color',[0.4940 0.1840 0.5560],'LineStyle','--','LineWidth',2)
 plot(modelPerformance.n,modelPerformance.CV.RMSE,'Color',[0.4940 0.1840 0.5560],'LineStyle',':','LineWidth',2)
 plot(modelPerformance.n,modelPerformance.MaxCIWidth,'Color',[0.3010 0.7450 0.9330],'LineStyle','-','LineWidth',2)
-plot(modelPerformance.n,modelPerformance.("C-RMSE"),'Color',[0.4660 0.6740 0.1880],'LineStyle','-.','LineWidth',2)
+% plot(modelPerformance.n,modelPerformance.("C-RMSE"),'Color',[0.4660 0.6740 0.1880],'LineStyle','-.','LineWidth',2)
 set(gca,'YScale','log')
 set(gca,'XScale','log')
 axis(axvec)
 legend('pv_{test}','pv_{train}','pv_{CV}','MAE_{test}','MAE_{train}','MAE_{CV}',...
-    'RMSE_{test}','RMSE_{train}','RMSE_{CV}','Maximum CI Width','C-RMSE','NumColumns',4,'Location','southoutside') 
+    'RMSE_{test}','RMSE_{train}','RMSE_{CV}','Maximum CI Width','NumColumns',4,'Location','southoutside') 
 xlabel('Number of Points (n)')
 ylabel('Metric Value (mm)')
 title('Model Performance Evaluation')
