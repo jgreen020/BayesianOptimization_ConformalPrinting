@@ -416,7 +416,7 @@ clc; clear; close all;
 % Load data
 addpath(genpath(fullfile(pwd)))
 basepath = "Data/Results/20250423_SimStudy4/";
-dirnames = dir(basepath+"*sim*");
+dirnames = dir(basepath+"*b_M*sim*");
 
 figure(10);
 set(gcf, 'Name', 'Criteria Tuning Helper','WindowStyle', 'normal','Position',[0 0 1280 840],'Color','white');

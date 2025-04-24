@@ -21,7 +21,7 @@ x_lim = [-30 30]; % Range of x
 y_lim = [-30 30]; % Range of y
 pad=0.7; % mm to cut off from scan on each side
 doaprint=false; % Is TCS being performed (true) or is this a simulation only (false)
-savedata=false; % Save data from the run
+savedata=true; % Save data from the run
 cmax=0.165; % Maximum Deviation (mm), sets the maximum for colormaps
 
 % Local Settings (can be set by an external script if the variable 'bulk' exists)

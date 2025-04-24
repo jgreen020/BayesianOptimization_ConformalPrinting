@@ -24,13 +24,8 @@ function [val,n_star] = ConfidenceTesting(modelPerformance,type,crit)
         while (val(row) >= crit) || (val(row+1) >= crit) || (val(row+2) >= crit)
             val(row)=0;
             row=row+1;
-            if (row+2)>max(size(val))
-                n_star=NaN;
-                break
-            end
         end
-        row=row+2;
+    row=row+2;
+    n_star = modelPerformance.n(row);
     end
-
-    if ~exist('n_star','var'); n_star = modelPerformance.n(row); end
 end
