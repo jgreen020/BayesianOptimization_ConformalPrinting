@@ -30,8 +30,8 @@ criticalNumber2=0.115; % Critiral number of stopping critiria
 if ~exist('bulk','var')
 
     % Surfaces and Curves
-    SurfA='Surf3a.csv'; % Name of the file containing the CT scan data for Surface A
-    SurfB='Surf3b.csv'; % Name of the file containing the CT scan data for Surface B
+    SurfA='Surf1a.csv'; % Name of the file containing the CT scan data for Surface A
+    SurfB='Surf1b.csv'; % Name of the file containing the CT scan data for Surface B
     Curve=@Hybrid; % Curve Parameterizaion
     
     % Surface Fitting Settings
@@ -43,7 +43,7 @@ if ~exist('bulk','var')
         n=3; % Grid size of sampling points for Bezier Fitting (n x n grid, n > 3)
         m=15; % If doing a simulation, program will test bezier fitting for n:1:m in parallel
     elseif method==2 || method==3
-        n=40; % Number of points to sample before starting Bayesian Optimization
+        n=10; % Number of points to sample before starting Bayesian Optimization
         m=225; % Final number of points for Bayesian Optimization
         A=@LCB_exp; % Aquisition Function to use
     else

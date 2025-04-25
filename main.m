@@ -1,4 +1,4 @@
-%% main.m
+% main.m
 % Authors: Jake Colwell and Zyaire Howard
 % Created: January 15, 2025
 % Last Major Modification: April 17, 2025
@@ -42,7 +42,7 @@
 
 %% Setup and Inputs
 % Close all figures, clear command window
-close all;clc
+close all; clc
 % Clear the workspace, but if calling from an external script, 
 % do not clear some important variables
 if ~exist('bulk','var')
@@ -617,6 +617,29 @@ if doaprint
     wypts=printcorrect(xBp,yBp,zBp,wypts);
 end
 
+%% Create MRD Instructions
+% if doaprint
+    % Write the curve into MRD instructions
+    offset = [30, 35, 1];
+    wypts(:,1) = wypts(:,1) + offset(1);
+    wypts(:,2) = wypts(:,2) + offset(2);
+    wypts(:,3) = wypts(:,3) + offset(3);
+    
+    wypts=cat(2, ones(size(wypts, 1), 1), wypts);
+    
+    V=[]; % initialize
+    
+    V(1,:)=[1 0 0 0];      % Start
+    V(2,:)=[1 0 0 23];     % Move above the surface
+    V(3,:)= wypts(1,:);    % Move to start of curve to be printed
+    V(3,:)=[5 1 0 0];      % Start deposition
+    V(4,:)=[6 100 0 0];    % Wait for deposition to start
+    
+    V=cat(1,V,wypts);       % Append curve waypoints to V
+    
+    V=cat(1,V,[5 0 0 0]);   % Stop deposition
+    V=cat(1,V,[1 0 0 23]);   % Move out of the way
+% end
 %% Plotting
 close all
 fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\tCreating Plots ...\n'])

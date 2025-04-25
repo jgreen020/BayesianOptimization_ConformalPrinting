@@ -1,4 +1,4 @@
-%% main.m
+% main.m
 % Authors: Jake Colwell and Zyaire Howard
 % Created: January 15, 2025
 % Last Major Modification: April 17, 2025
@@ -359,19 +359,6 @@ if method==1
         imwrite(imind,cm,strcat(fname,'_view2.tiff'),'tiff','WriteMode','append');
         clear im imind cm frame
         end
-
-        % Stop Bezier loop when stopping criteria is met
-        if stoppingcriteria
-            ConfidenceTestingValues = cat(1, ConfidenceTestingValues, mean(cvabsError));
-            if size(ConfidenceTestingValues, 1) >= 3
-                if ConfidenceTestingValues(end) < criticalNumber2 &&...
-                   ConfidenceTestingValues(end - 1) < criticalNumber2 &&...
-                   ConfidenceTestingValues(end - 2) < criticalNumber2
-                    criticalPrintingValue = size(ConfidenceTestingValues, 1) + n^6;
-                    break
-                end
-            end
-        end
     end
     iter=max(iter);
     zBp_all=zBp;
@@ -571,15 +558,15 @@ elseif method==2 || method==3
 
         t(iter)=toc(timer);
         fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\t  ... Completed BO iteration for iter=%i\n'],iter)
-
-        % Stop BO loop when stopping criteria it met
+        
+        % Stop BO loop when stopping criteria is met
         if stoppingcriteria
-            ConfidenceTestingValues = cat(1, ConfidenceTestingValues, mean(cvabsError));
+            ConfidenceTestingValues = cat(1, ConfidenceTestingValues, modelPerformance(iter,:).CV.MAE);
             if size(ConfidenceTestingValues, 1) >= 3
                 if ConfidenceTestingValues(end) < criticalNumber2 &&...
                    ConfidenceTestingValues(end - 1) < criticalNumber2 &&...
                    ConfidenceTestingValues(end - 2) < criticalNumber2
-                    criticalPrintingValue = size(ConfidenceTestingValues, 1) + n;
+                    criticalPrintingValue = iter;
                     break
                 end
             end
@@ -629,6 +616,45 @@ end
 if doaprint
     wypts=printcorrect(xBp,yBp,zBp,wypts);
 end
+
+%% Create MRD Instructions
+% Write the curve into MRD instructions
+offset = [30, 35, 1];
+wypts(:,1) = wpyts(:,1) + offset(1);
+wypts(:,2) = wpyts(:,2) + offset(2);
+wypts(:,3) = wpyts(:,3) + offset(3);
+
+wypts=cat(2, ones(size(wypts)), wypts);
+
+V=[]; % initialize
+
+V(1,:)=[1 0 0 0];      % Start
+V(2,:)=[1 0 0 23];     % Move above the surface
+V(3,:)= wypts(1,:);    % Move to start of curve to be printed
+V(3,:)=[5 1 0 0];      % Start deposition
+V(4,:)=[6 100 0 0];    % Wait for deposition to start
+
+V=cat(1,V,wypts);       % Append curve waypoints to V
+
+V=cat(1,V,[5 0 0 0]);   % Stop deposition
+V=cat(1,V,[1 0 0 23]);   % Move out of the way
+
+% %Plot MRD Space
+% figure(f4)
+% hold on
+% %Optimized Bezier Surface
+% surf(Sox+off(1),Soy+off(2),Soz+off(3),Co,'LineStyle','none','FaceColor',[.5 .5 .5],'FaceAlpha',0.5)
+% %Projected Curve
+% %plot3(x_t,y_t,z_t,'LineWidth',2,'Color',[0.5 0.5 0.5])
+% %Waypoints
+% plot3(wypts(:,2),wypts(:,3),wypts(:,4),'LineStyle','none','Marker','.','MarkerSize',1,'color',[1 0 0])
+% quiver3([0 0 0],[0 0 0],[0 0 0],[10 0 0],[0 10 0],[0 0 10]);
+% xlabel('x (mm)')
+% ylabel('y (mm)')
+% zlabel('z (mm)')
+% view(3)
+% axis equal
+% axis([ -110 10 -110 10 -1 42])
 
 %% Plotting
 close all
