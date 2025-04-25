@@ -21,15 +21,17 @@ x_lim = [-30 30]; % Range of x
 y_lim = [-30 30]; % Range of y
 pad=0.7; % mm to cut off from scan on each side
 doaprint=false; % Is TCS being performed (true) or is this a simulation only (false)
-savedata=true; % Save data from the run
+savedata=false; % Save data from the run
+stoppingcriteria=true; % Stop BO loop when stopping critria has been met 
 cmax=0.165; % Maximum Deviation (mm), sets the maximum for colormaps
+criticalNumber2=0.115; % Critiral number of stopping critiria
 
 % Local Settings (can be set by an external script if the variable 'bulk' exists)
 if ~exist('bulk','var')
 
     % Surfaces and Curves
     SurfA='Surf3a.csv'; % Name of the file containing the CT scan data for Surface A
-    SurfB='Surf3c_holes.csv'; % Name of the file containing the CT scan data for Surface B
+    SurfB='Surf3b.csv'; % Name of the file containing the CT scan data for Surface B
     Curve=@Hybrid; % Curve Parameterizaion
     
     % Surface Fitting Settings
@@ -42,7 +44,7 @@ if ~exist('bulk','var')
         m=15; % If doing a simulation, program will test bezier fitting for n:1:m in parallel
     elseif method==2 || method==3
         n=40; % Number of points to sample before starting Bayesian Optimization
-        m=80; % Final number of points for Bayesian Optimization
+        m=225; % Final number of points for Bayesian Optimization
         A=@LCB_exp; % Aquisition Function to use
     else
         disp('ERROR: Invalid Method Number')

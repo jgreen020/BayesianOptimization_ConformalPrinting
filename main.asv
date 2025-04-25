@@ -359,6 +359,19 @@ if method==1
         imwrite(imind,cm,strcat(fname,'_view2.tiff'),'tiff','WriteMode','append');
         clear im imind cm frame
         end
+
+        % Stop Bezier loop when stopping criteria is met
+        if stoppingcriteria
+            ConfidenceTestingValues = cat(1, ConfidenceTestingValues, mean(cvabsError));
+            if size(ConfidenceTestingValues, 1) >= 3
+                if ConfidenceTestingValues(end) < criticalNumber2 &&...
+                   ConfidenceTestingValues(end - 1) < criticalNumber2 &&...
+                   ConfidenceTestingValues(end - 2) < criticalNumber2
+                    criticalPrintingValue = size(ConfidenceTestingValues, 1) + n^6;
+                    break
+                end
+            end
+        end
     end
     iter=max(iter);
     zBp_all=zBp;
@@ -558,15 +571,15 @@ elseif method==2 || method==3
 
         t(iter)=toc(timer);
         fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\t  ... Completed BO iteration for iter=%i\n'],iter)
-        
-        % Stop BO loop when stopping criteria is met
+
+        % Stop BO loop when stopping criteria it met
         if stoppingcriteria
-            ConfidenceTestingValues = cat(1, ConfidenceTestingValues, modelPerformance(iter,:).CV.MAE);
+            ConfidenceTestingValues = cat(1, ConfidenceTestingValues, mean(cvabsError));
             if size(ConfidenceTestingValues, 1) >= 3
                 if ConfidenceTestingValues(end) < criticalNumber2 &&...
                    ConfidenceTestingValues(end - 1) < criticalNumber2 &&...
                    ConfidenceTestingValues(end - 2) < criticalNumber2
-                    criticalPrintingValue = iter;
+                    criticalPrintingValue = size(ConfidenceTestingValues, 1) + n;
                     break
                 end
             end
