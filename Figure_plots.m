@@ -138,6 +138,47 @@
 % ax = gca;
 % ax.FontSize = 16;
 
+%% Trial Surfaces Plot
+close all; clear; clc;
+addpath(genpath(fullfile(pwd)))
+surfs = {@Surface1a,@Surface1b,@Surface1c,@Surface2a,@Surface2b,@Surface2c,@Surface3a,@Surface3b,@Surface3c};
+
+Inputs
+
+x=linspace(x_min+pad, x_max-pad, res_s);
+y=linspace(y_min+pad, y_max-pad, res_s);
+[x, y]=meshgrid(x,y);
+x=x(:);y=y(:);
+
+f = figure('Position',[0 0 600 460]);
+title('Trial Surfaces')
+tiledlayout(f,'flow','TileSpacing','tight','Padding','loose')
+for i=[7 8 9 4 5 6 1 2 3]
+    nexttile
+    dasurf=surfs{i};
+    z=dasurf(x,y);
+    surf(reshape(x,res_s,res_s),reshape(y,res_s,res_s),reshape(z,res_s,res_s),'LineStyle','none')
+    title(func2str(dasurf))
+    view(3)
+    xlabel('x (mm)')
+    ylabel('y (mm)')
+    zlabel('z (mm)')
+    axis equal
+    axis off
+    grid off
+end
+annotation('arrow',[0.15 .85],[.1 .1])
+annotation('arrow',[.1 .1],[0.15 .85])
+annotation('textbox',[0.4 0 .2 .1],'String','Deviation','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','middle',...
+    'FontSize',12,'FontWeight','bold')
+annotation('textbox',[0.1 0.4 .2 .1],'String','Complexity','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','middle',...
+    'Rotation',90,'FontSize',12,'FontWeight','bold')
+fontsize(scale=1.5)
+
+savefig('Paper Figures/TrialSurface.fig')
+exportgraphics(f,'Paper Figures/TrialSurface.png')
+exportgraphics(f,'Paper Figures/TrialSurface.eps')
+
 %% Acquisition Function Figure (6 plots)
 % Average over the same surface complexity (over 1a, 1b, 1c)
 close all; clear; clc;
@@ -235,8 +276,8 @@ LD_Surf2_std=std(LD_Surf2,0,2);
 LD_Surf3_std=std(LD_Surf3,0,2);
 
 % Plot all curves in Figure 2 (docked)
-figure(1);
-set(gcf, 'Name', 'Acquisition Function Plot','WindowStyle', 'docked');
+figure('Position',[0 0 600 1000]);
+set(gcf, 'Name', 'Acquisition Function Plot');
 tiledlayout(3,1)
 
 nexttile(1)
@@ -247,12 +288,14 @@ patch([n1; flip(n1)], [LCB_Surf1_m-LCB_Surf1_std; flip(LCB_Surf1_m+LCB_Surf1_std
 plot(n1, LCB_Surf1_m,'r-', 'LineWidth', 2,'DisplayName','LCB');
 patch([n1; flip(n1)], [IVR2_Surf1_m-IVR2_Surf1_std; flip(IVR2_Surf1_m+IVR2_Surf1_std)], 'k', 'FaceAlpha',0.25, 'EdgeColor','none')
 plot(n1, IVR2_Surf1_m, 'k-', 'LineWidth', 2,'DisplayName','IVR');
-legend('Location','eastoutside');
+legend('','GD','','GV','','IVR','Location','eastoutside');
 ylabel('MAE [mm]');
 xlim([min(n1),max(n1)])
+ylim([0 1e0])
 set(gca,'XScale','log')
-set(gca,'YScale','log')
+% set(gca,'YScale','log')
 grid on
+title('Surface 1, M2 and M3')
 
 nexttile(2)
 hold on;
@@ -262,12 +305,13 @@ patch([n2; flip(n2)], [LCB_Surf2_m-LCB_Surf2_std; flip(LCB_Surf2_m+LCB_Surf2_std
 plot(n2, LCB_Surf2_m,'r-', 'LineWidth', 2,'DisplayName','LCB');
 patch([n2; flip(n2)], [IVR2_Surf2_m-IVR2_Surf2_std; flip(IVR2_Surf2_m+IVR2_Surf2_std)], 'k', 'FaceAlpha',0.25, 'EdgeColor','none')
 plot(n2, IVR2_Surf2_m, 'k-', 'LineWidth', 2,'DisplayName','IVR');
-legend('Location','eastoutside');
+legend('','GD','','GV','','IVR','Location','eastoutside');
 ylabel('MAE [mm]');
 xlim([min(n2),max(n2)])
 set(gca,'XScale','log')
 set(gca,'YScale','log')
 grid on
+title('Surface 2, M2 and M3')
 
 nexttile(3)
 hold on;
@@ -277,15 +321,19 @@ patch([n3; flip(n3)], [LCB_Surf3_m-LCB_Surf3_std; flip(LCB_Surf3_m+LCB_Surf3_std
 plot(n3, LCB_Surf3_m,'r-', 'LineWidth', 2,'DisplayName','LCB');
 patch([n3; flip(n3)], [IVR2_Surf3_m-IVR2_Surf3_std; flip(IVR2_Surf3_m+IVR2_Surf3_std)], 'k', 'FaceAlpha',0.25, 'EdgeColor','none')
 plot(n3, IVR2_Surf3_m, 'k-', 'LineWidth', 2,'DisplayName','IVR');
-legend('Location','eastoutside');
+legend('','GD','','GV','','IVR','Location','eastoutside');
 ylabel('MAE [mm]');
 xlim([min(n3),max(n3)])
 set(gca,'XScale','log')
 set(gca,'YScale','log')
 grid on
+title('Surface 3, M2 and M3')
 
 fontsize(gcf, scale=1.5)
 
+saveas(gcf,'Paper Figures/AFs.fig')
+exportgraphics(gcf,'Paper Figures/AFs.png')
+exportgraphics(gcf,'Paper Figures/AFs.eps')
 
 %% Full Stopping Criteria Figures
 clc; clear; close all;
@@ -535,7 +583,7 @@ xticks([0 9 16 25 36 49 64 81 100 121 144 169 196 225])
 %set(gca,'YGrid','on')
 grid on
 axis([0 225 -1 11])
-title('Convergence Speed Comparison')
+title('Method Performance Comparison')
 xlabel('Number of Points, n')
 ylabel('Surface')
 
@@ -570,9 +618,9 @@ for i = 1:size(dirnames,1)
     scatter(printNumberIG,row,150,[0.4940 0.1840 0.5560],'square','LineWidth',1)
     end
 end
-legend('','Method 1','','','','','','','','','','','','','','','','','','Method 2','','Method 3','Location','eastoutside')
+legend('','Method 1','','','','','','','','','','','','','','','','','','Method 2','','','','Method 3','Location','eastoutside')
 fontsize('scale',1.5)
 
-saveas(figure(10),strcat(basepath,'ConvergenceSummary.fig'))
-exportgraphics(figure(10),strcat(basepath,'ConvergenceSummary.png'))
-exportgraphics(figure(10),strcat(basepath,'ConvergenceSummary.eps'))
+saveas(figure(10),'Paper Figures/ConvergenceSummary.fig')
+exportgraphics(figure(10),'Paper Figures/ConvergenceSummary.png')
+exportgraphics(figure(10),'Paper Figures/ConvergenceSummary.eps')
