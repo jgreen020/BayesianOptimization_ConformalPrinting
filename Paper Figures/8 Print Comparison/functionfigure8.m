@@ -140,7 +140,7 @@ function functionfigure8(trial_files, complete_data_files, image_files, figure_n
     
     % Save as EPS
     eps_filename = [output_basename, '.eps'];
-    print(fig8, eps_filename, '-depsc'); % -depsc is for color EPS
+    print('-vector',fig8, eps_filename, '-depsc'); % -depsc is for color EPS
     fprintf('Saved EPS: %s\n', eps_filename);
 end
 
