@@ -194,9 +194,9 @@ for k = 1:numel(trial_filenames)
         for i = 1:length(run_starts)
             segment = run_starts(i):run_ends(i);
             if is_green(run_starts(i))
-                plot3(ax(row, j), x_c(segment), y_c(segment), z_c(segment), 'g', 'LineWidth', 2);
+                plot3(ax(row, j), x_c(segment), y_c(segment), z_c(segment), 'Color', '#0072B2', 'LineWidth', 2);
             else
-                plot3(ax(row, j), x_c(segment), y_c(segment), z_c(segment), 'r', 'LineWidth', 2);
+                plot3(ax(row, j), x_c(segment), y_c(segment), z_c(segment), 'Color', '#D55E00', 'LineWidth', 2);
             end
         end
         axis(ax(row, j), 'equal', [-30+pad 30-pad -30+pad 30-pad]);
@@ -219,7 +219,7 @@ for k = 1:numel(trial_filenames)
     cb1.Position = [uniform_colorbar_left, pos2(2), uniform_colorbar_width, cb1_height];
     pos3 = get(ax(3,5), 'Position'); 
     c_ax = axes('Position', [uniform_colorbar_left, pos3(2), uniform_colorbar_width, pos3(4)], 'Visible', 'off');
-    colormap(c_ax, [1 0 0; 0 1 0]); 
+    colormap(c_ax, [0.8353 0.3686 0; 0 0.4471 0.6980]); 
     cb2 = colorbar(c_ax);
     cb2.Label.String = 'Curve Condition';
     cb2.Ticks = [0.25, 0.75];
@@ -231,10 +231,17 @@ for k = 1:numel(trial_filenames)
     set(cb1, 'FontSize', uniform_font_size);
     set(cb2, 'FontSize', uniform_font_size);
     
-    % --- Save the completed figure as a PNG ---
-    output_filename = [current_trial, '.png'];
-    exportgraphics(fig, output_filename, 'Resolution', 300);
-    fprintf('Figure saved as: %s\n', output_filename);
+    % --- SAVE FIGURES (Updated Method) ---
+    % 1. Save as MATLAB Figure (.fig)
+    saveas(fig, [current_trial, '.fig']);
+    
+    % 2. Save as PNG (Raster)
+    exportgraphics(fig, [current_trial, '.png'], 'Resolution', 300);
+    
+    % 3. Save as EPS (Vector)
+    exportgraphics(fig, [current_trial, '.eps']);
+    
+    fprintf('Saved: %s (.fig, .png, .eps)\n', current_trial);
     
     close(fig); % Close the figure to free up memory
 end
