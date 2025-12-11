@@ -7,7 +7,7 @@
 
 %% Method Comparison Figure
 clc; clear; close all;
-
+naloc = 244;
 % Load data
 addpath(genpath(fullfile(pwd)))
 basepath = "Data/Results/20250423_SimStudy4/";
@@ -16,14 +16,17 @@ dirnames = dir(basepath+"*sim*");
 figure(10);
 set(gcf, 'Name', 'Method Comparison','WindowStyle', 'normal','Position',[0 0 640 420],'Color','white');
 hold on
-yticks([0 1 2 4 5 6 8 9 10 11])
+yticklocs = [0 1 2 4 5 6 8 9 10 11] ;
+yticks(yticklocs)
 yticklabels(["1A","1B","1C","2A","2B","2C","3A","3B","3C",''])
-xticks([0 9 16 25 36 49 64 81 100 121 144 169 196 225])
+xticklocs = [0 9 16 25 36 49 64 81 100 121 144 169 196 225];
+xticks(xticklocs)
 %set(gca,'YGrid','on')
 grid on
 axis([0 225 -1 11])
-title('Method Performance Comparison')
-xlabel('Number of Points, n')
+set(gca,'Clipping','off')
+%title('Method Performance Comparison')
+xlabel('Number of Points, n*')
 ylabel('Surface')
 
 for i = 1:size(dirnames,1)
@@ -35,7 +38,11 @@ for i = 1:size(dirnames,1)
     % Error Metrics
     ns{i}=modelPerformance.n;
     [IdealGuarantee{i}, printNumberIGs{i}] = MiniCriteria(modelPerformance,0.055);
+    if isnan(printNumberIGs{i})
+        printNumberIGs{i}=naloc;
+    end
     printNumberIG=printNumberIGs{i};
+    
     figure(10)
     row_maj = str2double(SurfB(5));
     if SurfB(6)=='a'
@@ -57,7 +64,25 @@ for i = 1:size(dirnames,1)
     scatter(printNumberIG,row,150,[0.4940 0.1840 0.5560],'square','LineWidth',1)
     end
 end
-legend('','Method 1','','','','','','','','','','','','','','','','','','Method 2','','','','Method 3','Location','eastoutside')
+legend('','Method 1','','','','','','','','','','','','','','','','','','Method 2','','','','Method 3','Location','southeast')
+
+axpos=get(gca,'Position') ;
+ticklen = get(gca,'TickLength') ;
+% linex = axpos(1)+axpos(3)+.05 ;
+linex = axpos(1)+naloc/225*axpos(3) ;
+lineytop = axpos(2)+axpos(3)+.04;
+hLineWidth = 0.01 ;
+annotation('line',[linex linex],[axpos(2) lineytop],'Color',[223 223 223]/255)
+annotation('line',[linex linex],[axpos(2) axpos(2)+ticklen(1)])
+annotation('line',[linex-hLineWidth linex+hLineWidth],[axpos(2) axpos(2)])
+annotation('textbox',[linex-.05 0 .1 axpos(2)],'String','N/A','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','top','Margin',7)
+
+ylimloc = get(gca,'YLim');
+naTickLocs = (yticklocs-ylimloc(1))/(ylimloc(2)-ylimloc(1))*(lineytop-axpos(2))+axpos(2) ; 
+for i=1:length(naTickLocs)
+    annotation('line',[linex-hLineWidth linex+hLineWidth],[naTickLocs(i) naTickLocs(i)],'Color',[223 223 223]/255)
+end
+
 fontsize('scale',1.5)
 
 saveas(figure(10),'Paper Figures/5 Sim Summary/ConvergenceSummary.fig')

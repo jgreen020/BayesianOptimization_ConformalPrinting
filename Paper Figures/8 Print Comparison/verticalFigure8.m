@@ -58,11 +58,11 @@ imshow(combined_image);
 title('Vertically Combined Figures');
 
 % Save as PNG
-imwrite(combined_image, png_output_filename);
+% imwrite(combined_image, png_output_filename);
 fprintf('Successfully saved PNG as "%s"\n', png_output_filename);
 
 % Save as EPS
 % The 'print' command saves the content of the figure window
-print(fig, eps_output_filename, '-depsc');
+% print(fig, eps_output_filename, '-depsc');
 fprintf('Successfully saved EPS as "%s"\n', eps_output_filename);
 
