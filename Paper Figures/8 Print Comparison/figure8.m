@@ -2,6 +2,8 @@
 close all; clear; clc;
 addpath(genpath(pwd))
 
+blank = true;
+
 % --- List of all trial filenames ---
 trials = {
     '20250515_225518_Surf1b_M1_real.mat', ...
@@ -47,10 +49,14 @@ ax = nexttile(t1,(j-1)*(size(surf_images,1))+k);
 hold(ax, 'on');
 
 try
-    img = imread(surf_images{j,k});
+    img = imread(strcat("print ims/marked up/",surf_images{j,k}));
 catch ME
     text(0.5, 0.5, 'Image not found', 'Parent', ax, 'HorizontalAlignment', 'center', 'FontSize', fontSize);
     warning('Could not read image file: %s. Error: %s', surf_images{j,k}, ME.message);
+end
+
+if blank
+    img = ones(2,2,3);
 end
 image('CData',img,'XData',[-30 30],'YData',[30 -30])
 
@@ -88,6 +94,7 @@ end
 l=legend('NumColumns',2);
 l.Layout.Tile = 'south';
 
+if blank
 % --- SAVE FIGURE ---
 fname = 'Paper Figures/8 Print Comparison/Figure8';
 
@@ -100,3 +107,4 @@ fprintf('Saved PNG: %s\n', png_filename);
 eps_filename = [fname, '.eps'];
 exportgraphics(fig8, eps_filename, 'ContentType','vector'); % -depsc is for color EPS
 fprintf('Saved EPS: %s\n', eps_filename);
+end
