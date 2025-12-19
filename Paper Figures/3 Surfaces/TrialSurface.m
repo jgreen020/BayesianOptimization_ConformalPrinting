@@ -19,7 +19,9 @@ x=x(:);y=y(:);
 
 f = figure('Position',[0 0 600 460]);
 %title('Trial Surfaces')
-tiledlayout(f,'flow','TileSpacing','tight','Padding','loose')
+tilePos = [.2 .2 .75 .75];
+t = tiledlayout(f,3,3,'TileSpacing','tight','Padding','loose','Position',tilePos);
+stats = readtable("Paper Figures/3 Surfaces/SurfaceStats.csv") ;
 for i=[7 8 9 4 5 6 1 2 3]
     nexttile
     dasurf=surfs{i};
@@ -35,28 +37,60 @@ for i=[7 8 9 4 5 6 1 2 3]
     grid off
 end
 colormap('viridis')
-annotation('arrow',[0.15 .9],[.1 .1])
-annotation('arrow',[.1 .1],[0.15 .9])
-annotation('textbox',[0.4 0 .2 .05],'String','Deviation','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','bottom',...
+gap = 0.023;
+tick = 0.01;
+DevLiney = 0.163;
+CompLinex = 0.125;
+annotation('arrow',[tilePos(1) tilePos(1)+tilePos(3)],[DevLiney DevLiney])
+annotation('arrow',[CompLinex CompLinex],[tilePos(2)+gap tilePos(2)+tilePos(4)])
+annotation('textbox',[tilePos(1)+tilePos(3)/2-0.1 0 .2 .05],'String','Deviation','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','bottom',...
     'FontSize',12,'FontWeight','bold','Margin',0,'FitBoxToText','off')
-annotation('textbox',[0.04 0.4 .2 .05],'String','Complexity','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','top',...
+annotation('textbox',[0.04 tilePos(2)+tilePos(4)/2-0.1 .2 .05],'String','Complexity','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','top',...
     'Rotation',90,'FontSize',12,'FontWeight','bold','Margin',0)
 
-annotation('line',[7 7]/30,[.11 .09])
-annotation('line',[15 15]/30,[.11 .09])
-annotation('line',[23 23]/30,[.11 .09])
-annotation('textbox',[7/30-.05 .06-.05 .1 .1],'String','A','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',12,'Margin',0)
-annotation('textbox',[15/30-.05 .06-.05 .1 .1],'String','B','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',12,'Margin',0)
-annotation('textbox',[23/30-.05 .06-.05 .1 .1],'String','C','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',12,'Margin',0)
 
-annotation('line',[.11 .09],[7 7]/30)
-annotation('line',[.11 .09],[15 15]/30)
-annotation('line',[.11 .09],[23 23]/30)
-annotation('textbox',[.07-.05 7/30-.05 .1 .1],'String','1','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',12,'Margin',0)
-annotation('textbox',[.07-.05 15/30-.05 .1 .1],'String','2','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',12,'Margin',0)
-annotation('textbox',[.07-.05 23/30-.05 .1 .1],'String','3','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',12,'Margin',0)
+Ax = tilePos(1)+4 *tilePos(3)/30;
+Bx = tilePos(1)+15*tilePos(3)/30;
+Cx = tilePos(1)+26*tilePos(3)/30;
+% axposA = nexttile(t,7).Position ;
+% axposB = nexttile(t,8).Position ;
+% axposC = nexttile(t,9).Position ;
+% Ax = axposA(1)+axposA(3)/2 ;
+% Bx = axposB(1)+axposB(3)/2 ;
+% Cx = axposC(1)+axposC(3)/2 ;
+ABCy = 0.05 ;
+
+annotation('line',[Ax Ax],[DevLiney+tick DevLiney-tick])
+annotation('line',[Bx Bx],[DevLiney+tick DevLiney-tick])
+annotation('line',[Cx Cx],[DevLiney+tick DevLiney-tick])
+annotation('textbox',[Ax-.05 ABCy .1 .1],'String','  A\newlineLow','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','bottom','FontSize',12,'Margin',0)
+annotation('textbox',[Bx-.05 ABCy .1 .1],'String','  B\newlineMid','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','bottom','FontSize',12,'Margin',0)
+annotation('textbox',[Cx-.05 ABCy .1 .1],'String','  C\newlineHigh','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','bottom','FontSize',12,'Margin',0)
+
+y1 = tilePos(2)+4 *tilePos(4)/30;
+y2 = tilePos(2)+15*tilePos(4)/30;
+y3 = tilePos(2)+26*tilePos(4)/30;
+% axpos1 = nexttile(t,1).Position ;
+% axpos2 = nexttile(t,4).Position ;
+% axpos3 = nexttile(t,7).Position ;
+% yOffset = 0.03;
+% y1 = axpos1(2)+axpos1(4)/2+yOffset;
+% y2 = axpos2(2)+axpos2(4)/2+yOffset;
+% y3 = axpos3(2)+axpos3(4)/2+yOffset;
+x123 = 0.07;
+annotation('line',[CompLinex+tick CompLinex-tick],[y1 y1])
+annotation('line',[CompLinex+tick CompLinex-tick],[y2 y2])
+annotation('line',[CompLinex+tick CompLinex-tick],[y3 y3])
+annotation('textbox',[x123-.05 y1-.05 .1 .1],'String','  1\newlineLow','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',12,'Margin',0)
+annotation('textbox',[x123-.05 y2-.05 .1 .1],'String','  2\newlineMid','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',12,'Margin',0)
+annotation('textbox',[x123-.05 y3-.05 .1 .1],'String','  3\newlineHigh','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',12,'Margin',0)
 
 fontsize(scale=1.5)
+statOffsets = [0 0.02 .04]-.05 ;
+for i = 1:9
+    axpos = nexttile(t,i).Position;
+    annotation('textbox',[axpos(1)+axpos(3)/2 axpos(2)+statOffsets(ceil(i/3)) .1 .1],'String',sprintf('n_{CP} = %i, MAE_A = %.3f',stats.CriticalPoints(i),stats.Devation(i)),'FontSize',12,'FontWeight','normal','HorizontalAlignment','center','VerticalAlignment','top','LineStyle','none')
+end
 
 savefig('Paper Figures/3 Surfaces/TrialSurface.fig')
 exportgraphics(f,'Paper Figures/3 Surfaces/TrialSurface.png')

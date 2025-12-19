@@ -52,7 +52,14 @@ for j=1:3
     disp('Finished Surface'+string(i)+letters{j})
 end
 end
-disp('Critical Points:')
-disp(cps)
-disp('Deviations:')
-disp(MAEs)
+%%
+SurfStats = table("N",0,0,'VariableNames',{'Surface','Critical Points','Devation'});
+counter = 1;
+for i=1:3
+for j=1:3
+    SurfStats(counter,:) = {string(i)+letters{j}, cps(i,j), MAEs(i,j)};
+    counter = counter+1 ;
+end
+end
+disp(SurfStats)
+writetable(SurfStats,'Paper Figures/3 Surfaces/SurfaceStats.csv')
