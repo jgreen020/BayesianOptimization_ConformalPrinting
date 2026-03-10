@@ -117,7 +117,96 @@ exportgraphics(f,'Paper Figures/2 Methods/c/Fig2c.png','BackgroundColor','none')
 exportgraphics(f,'Paper Figures/2 Methods/c/Fig2c.eps','ContentType','vector','BackgroundColor','none')
 set(f,'Color','white')
 
-%% Figure 2d and h, Bezier Surface
+%% Figure 2d Initial Bezier Surface
+clear;clc;close all
+addpath(genpath(fullfile(pwd)))
+bulk=1;
+
+Curve=@Hybrid; % Curve Parameterizaion
+
+Inputs
+
+surfnames = {'Surf2a.csv','Surf2b.csv'};
+method=1;
+n=3;
+m=3;
+AFs = ['d','h'];
+
+safeloopvar = 1 ;
+SurfB=surfnames{safeloopvar};
+
+[dataB, fB, nameB]=importCTdata(SurfB,y_lim,x_lim,pad,res_s);
+main
+
+close all
+
+% Compress point cloud for visualization
+P_o_comp = P_o(:,:,3);
+P_o_comp = P_o_comp(:);
+z_max = max(zBp,[],'all');
+z_min = min(zBp,[],'all');
+P_o_comp(P_o_comp>z_max) = (P_o_comp(P_o_comp>z_max)-z_max)/10 + z_max ;
+P_o_comp(P_o_comp<z_min) = (P_o_comp(P_o_comp<z_min)-z_min)/10 + z_min ;
+P_o_comp = reshape(P_o_comp, [n,n]);
+
+f=figure('Color','none','Name',['Figure 2',AFs(safeloopvar)],'Position',[0,0,560,420]);
+hold on
+surfaceplot = surf(xBp,yBp,zBp, LineStyle='none');
+testpointsplot = scatter3(testpoints(:,1),testpoints(:,2),testpoints(:,3),4,'black',Marker="o",MarkerFaceColor='black');
+ctrlpointsplot = scatter3(P_o(:,:,1),P_o(:,:,2),P_o_comp,Marker="o",MarkerEdgeColor='red',LineWidth=3);
+ctrllinesplot = surf(P_o(:,:,1),P_o(:,:,2),P_o_comp, FaceAlpha=0,Marker="o",EdgeColor='red',LineStyle='--',LineWidth=3);
+axis equal
+axis off
+view([45,35])
+clim([z_min z_max])
+
+savefig(['Paper Figures/2 Methods/',AFs(safeloopvar),'/Fig2',AFs(safeloopvar),'.fig'])
+exportgraphics(f,['Paper Figures/2 Methods/',AFs(safeloopvar),'/Fig2',AFs(safeloopvar),'.png'],'BackgroundColor','none')
+
+delete(ctrllinesplot)
+exportgraphics(f,['Paper Figures/2 Methods/',AFs(safeloopvar),'/Fig2',AFs(safeloopvar),'_1.eps'],'ContentType','vector','BackgroundColor','none')
+
+lines = zeros(1,2,3);
+P_o2 = P_o;
+P_o2(:,:,3) = P_o_comp;
+for i = 1:size(P_o2,1)
+    for j = 1:size(P_o2,2)
+        pt = P_o2(i,j,:);
+        if i<size(P_o2,1)
+            pt2 = P_o2(i+1,j,:);
+            lines = cat(1,lines,[pt pt2]);
+        end
+        if j<size(P_o2,2)
+            pt2 = P_o2(i,j+1,:);
+            lines = cat(1,lines,[pt pt2]);
+        end
+    end
+end
+lines = lines(2:end,:,:);
+
+res_l = 100;
+for k = 1:size(lines,1)
+    line = lines(k,:,:);
+    pt = line(1,1,:);
+    pt2 = line(1,2,:);
+    line = [linspace(pt(1,1,1),pt2(1,1,1),res_l)', linspace(pt(1,1,2),pt2(1,1,2),res_l)', linspace(pt(1,1,3),pt2(1,1,3),res_l)'];
+    above = line(:,3) > fB_p{n}(line(:,1),line(:,2));
+    edges = diff([false; above; false]);
+    starts = find(edges == 1);
+    ends = find(edges == -1) - 1;
+    blocks = [starts' ends'];
+    if ~isempty(blocks)
+    for l = 1:size(blocks,1)
+        block = blocks(l,:);
+        segment = [line(block(1),:); line(block(2),:)];
+        plot3(segment(:,1),segment(:,2),segment(:,3),Marker='none',Color='red',LineWidth=3,LineStyle='--')
+    end
+    end
+end
+
+delete(surfaceplot); delete(ctrlpointsplot); delete(testpointsplot);
+exportgraphics(f,['Paper Figures/2 Methods/',AFs(safeloopvar),'/Fig2',AFs(safeloopvar),'_2.eps'],'ContentType','vector','BackgroundColor','none')
+%% Figure 2e, i, and j, Bezier Surface and Point Cloud
 clear;clc;close all
 addpath(genpath(fullfile(pwd)))
 bulk=1;
@@ -130,7 +219,7 @@ surfnames = {'Surf2a.csv','Surf2b.csv'};
 method=1;
 n=6;
 m=6;
-AFs = ['d','h'];
+AFs = ['e','j'];
 
 for safeloopvar = [1,2]
     SurfB=surfnames{safeloopvar};
@@ -207,7 +296,20 @@ for safeloopvar = [1,2]
     delete(surfaceplot); delete(ctrlpointsplot); delete(testpointsplot);
     exportgraphics(f,['Paper Figures/2 Methods/',AFs(safeloopvar),'/Fig2',AFs(safeloopvar),'_2.eps'],'ContentType','vector','BackgroundColor','none')
 end
-%% Figure 2e, GPR plot
+
+f=figure('Color','none','Name','Figure 2i');
+hold on
+scatter3(testpoints(:,1),testpoints(:,2),testpoints(:,3),50,testpoints(:,3),Marker="o",MarkerFaceColor='flat');
+axis equal
+axis off
+view([45,35])
+clim([z_min z_max])
+savefig('Paper Figures/2 Methods/i/Fig2i.fig')
+exportgraphics(f,'Paper Figures/2 Methods/i/Fig2i.png','BackgroundColor','none')
+exportgraphics(f,'Paper Figures/2 Methods/i/Fig2i.eps','ContentType','vector','BackgroundColor','none')
+set(f,'Color','white')
+
+%% Figure 2f, GPR plot
 clear;clc;close all
 addpath(genpath(fullfile(pwd)))
 
@@ -233,27 +335,27 @@ axis equal
 axis off
 view([45,35])
 
-savefig('Paper Figures/2 Methods/e/Fig2e.fig')
-exportgraphics(f,'Paper Figures/2 Methods/e/Fig2e.png','BackgroundColor','none')
-exportgraphics(f,'Paper Figures/2 Methods/e/Fig2e.eps','ContentType','vector','BackgroundColor','none')
+savefig('Paper Figures/2 Methods/f/Fig2f.fig')
+exportgraphics(f,'Paper Figures/2 Methods/f/Fig2f.png','BackgroundColor','none')
+exportgraphics(f,'Paper Figures/2 Methods/f/Fig2f.eps','ContentType','vector','BackgroundColor','none')
 set(f,'Color','white')
 
-%% Figure 2f
+%% Figure 2g
 
 % Photo of Surface 2b
 
 
-%% Figure 2g
+%% Figure 2h
 
 % Photo of Surface 2b being scanned with TCS
 
 
-%% Figure 2h
+%% Figure 2i, j
 
 % Handled Above
 
 
-%% Figure 2i and j, GPR plot, low n and high n, surface B
+%% Figure 2k, l, and m, GPR plot, low n and high n, surface B
 clear;clc;close all
 addpath(genpath(fullfile(pwd)))
 
@@ -261,7 +363,7 @@ res = 100;
 load('Data/Results/20250423_SimStudy4/20250423_202116_Surf2b_M2_LCB_exp_sim/20250423_202116_Surf2b_M2_LCB_exp_sim.mat')
 
 target_n = [20, 150];
-letters = ['i','j'];
+letters = ['l','m'];
 for i = 1:2
     gpr = gprMdls{target_n(i)};
     x = gpr.X.x;
@@ -286,5 +388,17 @@ for i = 1:2
     savefig(f(i),['Paper Figures/2 Methods/',letters(i),'/Fig2',letters(i),'.fig'])
     exportgraphics(f(i),['Paper Figures/2 Methods/',letters(i),'/Fig2',letters(i),'.png'],'BackgroundColor','none')
     exportgraphics(f(i),['Paper Figures/2 Methods/',letters(i),'/Fig2',letters(i),'.eps'],'ContentType','vector','BackgroundColor','none')
-    set(f(i),'Color','white')
+
+    if i==1
+        hold off
+        scatter3(x,y,z,50,z,'o','MarkerFaceColor','flat')
+        axis equal
+        axis off
+        view([45,35])
+        
+        savefig(f(i),'Paper Figures/2 Methods/k/Fig2k.fig')
+        exportgraphics(f(i),'Paper Figures/2 Methods/k/Fig2k.png','BackgroundColor','none')
+        exportgraphics(f(i),'Paper Figures/2 Methods/k/Fig2k.eps','ContentType','vector','BackgroundColor','none')
+        set(f(i),'Color','white')
+    end
 end

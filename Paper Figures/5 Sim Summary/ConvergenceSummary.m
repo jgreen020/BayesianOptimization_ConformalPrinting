@@ -14,8 +14,9 @@ basepath = "Data/Results/20250423_SimStudy4/";
 dirnames = dir(basepath+"*sim*");
 
 figure(10);
-set(gcf, 'Name', 'Method Comparison','WindowStyle', 'normal','Position',[0 0 640 420],'Color','white');
+set(gcf, 'Name', 'Method Comparison','WindowStyle', 'normal','Unit','inches','Position',[0 0 3 1.9688],'Color','white');
 hold on
+fontsize(6,"points")
 yticklocs = [0 1 2 4 5 6 8 9 10 11] ;
 yticks(yticklocs)
 yticklabels(["1A","1B","1C","2A","2B","2C","3A","3B","3C",''])
@@ -28,6 +29,23 @@ set(gca,'Clipping','off')
 %title('Method Performance Comparison')
 xlabel('Number of Points, n*')
 ylabel('Surface')
+
+axpos=get(gca,'Position') ;
+ticklen = get(gca,'TickLength') ;
+% linex = axpos(1)+axpos(3)+.05 ;
+linex = axpos(1)+naloc/225*axpos(3) ;
+lineytop = axpos(2)+axpos(3)-.02;
+hLineWidth = 0.01 ;
+annotation('line',[linex linex],[axpos(2) lineytop],'Color',[223 223 223]/255)
+annotation('line',[linex linex],[axpos(2) axpos(2)+ticklen(1)])
+annotation('line',[linex-hLineWidth linex+hLineWidth],[axpos(2) axpos(2)])
+annotation('textbox',[linex-.05 0 .1 axpos(2)],'String','N/A','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','top','Margin',7,'FontSize',6)
+
+ylimloc = get(gca,'YLim');
+naTickLocs = (yticklocs-ylimloc(1))/(ylimloc(2)-ylimloc(1))*(lineytop-axpos(2))+axpos(2) ; 
+for i=1:length(naTickLocs)
+    annotation('line',[linex-hLineWidth linex+hLineWidth],[naTickLocs(i) naTickLocs(i)],'Color',[223 223 223]/255)
+end
 
 for i = 1:size(dirnames,1)
     % Load data
@@ -53,38 +71,20 @@ for i = 1:size(dirnames,1)
         row_min=2;
     end
     row = 4*(row_maj-1)+row_min;
+    scale = .15;
     if method == 1 
-    scatter(printNumberIG,row,150,[0.8500 0.3250 0.0980],'filled','o','MarkerFaceAlpha',0.2)
-    scatter(printNumberIG,row,150,[0.8500 0.3250 0.0980],'o','LineWidth',1)
+    scatter(printNumberIG,row,150*scale,[0.8500 0.3250 0.0980],'filled','o','MarkerFaceAlpha',0.2)
+    scatter(printNumberIG,row,150*scale,[0.8500 0.3250 0.0980],'o','LineWidth',1)
     elseif method == 2
-    scatter(printNumberIG,row,200,[0.9290 0.6940 0.1250],'filled','^','LineWidth',2,'MarkerFaceAlpha',0.2,'MarkerEdgeAlpha',1)
-    scatter(printNumberIG,row,150,[0.9290 0.6940 0.1250],'^','LineWidth',1)
+    scatter(printNumberIG,row,200*scale,[0.9290 0.6940 0.1250],'filled','^','LineWidth',2,'MarkerFaceAlpha',0.2,'MarkerEdgeAlpha',1)
+    scatter(printNumberIG,row,150*scale,[0.9290 0.6940 0.1250],'^','LineWidth',1)
     elseif method == 3
-    scatter(printNumberIG,row,150,[0.4940 0.1840 0.5560],'filled','square','MarkerFaceAlpha',0.2,'MarkerEdgeAlpha',1)
-    scatter(printNumberIG,row,150,[0.4940 0.1840 0.5560],'square','LineWidth',1)
+    scatter(printNumberIG,row,150*scale,[0.4940 0.1840 0.5560],'filled','square','MarkerFaceAlpha',0.2,'MarkerEdgeAlpha',1)
+    scatter(printNumberIG,row,150*scale,[0.4940 0.1840 0.5560],'square','LineWidth',1)
     end
 end
-legend('','Method 1','','','','','','','','','','','','','','','','','','Method 2','','','','Method 3','Location','southeast')
+legend('','M1','','','','','','','','','','','','','','','','','','M2','','','','M3','Location','southeast')
 
-axpos=get(gca,'Position') ;
-ticklen = get(gca,'TickLength') ;
-% linex = axpos(1)+axpos(3)+.05 ;
-linex = axpos(1)+naloc/225*axpos(3) ;
-lineytop = axpos(2)+axpos(3)+.04;
-hLineWidth = 0.01 ;
-annotation('line',[linex linex],[axpos(2) lineytop],'Color',[223 223 223]/255)
-annotation('line',[linex linex],[axpos(2) axpos(2)+ticklen(1)])
-annotation('line',[linex-hLineWidth linex+hLineWidth],[axpos(2) axpos(2)])
-annotation('textbox',[linex-.05 0 .1 axpos(2)],'String','N/A','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','top','Margin',7)
-
-ylimloc = get(gca,'YLim');
-naTickLocs = (yticklocs-ylimloc(1))/(ylimloc(2)-ylimloc(1))*(lineytop-axpos(2))+axpos(2) ; 
-for i=1:length(naTickLocs)
-    annotation('line',[linex-hLineWidth linex+hLineWidth],[naTickLocs(i) naTickLocs(i)],'Color',[223 223 223]/255)
-end
-
-fontsize('scale',1.5)
-
-saveas(figure(10),'Paper Figures/5 Sim Summary/ConvergenceSummary.fig')
-exportgraphics(figure(10),'Paper Figures/5 Sim Summary/ConvergenceSummary.png')
-exportgraphics(figure(10),'Paper Figures/5 Sim Summary/ConvergenceSummary.eps')
+saveas(figure(10),'Paper Figures/5 Sim Summary/Figure5.fig')
+exportgraphics(figure(10),'Paper Figures/5 Sim Summary/Figure5.png')
+exportgraphics(figure(10),'Paper Figures/5 Sim Summary/Figure5.eps','ContentType','vector')

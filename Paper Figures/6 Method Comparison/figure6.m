@@ -3,73 +3,11 @@ close all; clear; clc;
 
 % --- Configuration ---
 % --- List of all trial filenames from your simulation study ---
-trial_filenames = {
-    '20250411_091817_Surf1a_M1_sim', ...
-    '20250411_095132_Surf1a_M2_LD_sim', ...
-    '20250411_100032_Surf1a_M2_LCB_exp_sim', ...
-    '20250411_100853_Surf1a_M2_IVR2_sim', ...
-    '20250411_101928_Surf1a_Surf1a_M3_LD_sim', ...
-    '20250411_103328_Surf1a_Surf1a_M3_LCB_exp_sim', ...
-    '20250411_104741_Surf1a_Surf1a_M3_IVR2_sim', ...
-    '20250411_110658_Surf1b_M1_sim', ...
-    '20250411_113459_Surf1b_M2_LD_sim', ...
-    '20250411_114352_Surf1b_M2_LCB_exp_sim', ...
-    '20250411_115242_Surf1b_M2_IVR2_sim', ...
-    '20250411_120346_Surf1a_Surf1b_M3_LD_sim', ...
-    '20250411_121826_Surf1a_Surf1b_M3_LCB_exp_sim', ...
-    '20250411_123305_Surf1a_Surf1b_M3_IVR2_sim', ...
-    '20250411_135721_Surf1c_M1_sim', ...
-    '20250411_142453_Surf1c_M2_LD_sim', ...
-    '20250411_143506_Surf1c_M2_LCB_exp_sim', ...
-    '20250411_144505_Surf1c_M2_IVR2_sim', ...
-    '20250411_145722_Surf1a_Surf1c_M3_LD_sim', ...
-    '20250411_151427_Surf1a_Surf1c_M3_LCB_exp_sim', ...
-    '20250411_153126_Surf1a_Surf1c_M3_IVR2_sim', ...
-    '20250411_155327_Surf2a_M1_sim', ...
-    '20250411_162120_Surf2a_M2_LD_sim', ...
-    '20250411_163105_Surf2a_M2_LCB_exp_sim', ...
-    '20250411_164041_Surf2a_M2_IVR2_sim', ...
-    '20250411_165215_Surf2a_Surf2a_M3_LD_sim', ...
-    '20250411_170519_Surf2a_Surf2a_M3_LCB_exp_sim', ...
-    '20250411_171810_Surf2a_Surf2a_M3_IVR2_sim', ...
-    '20250411_173343_Surf2b_M1_sim', ...
-    '20250411_180123_Surf2b_M2_LD_sim', ...
-    '20250411_185048_Surf2b_M2_LCB_exp_sim', ...
-    '20250411_193220_Surf2b_M2_IVR2_sim', ...
-    '20250411_194535_Surf2a_Surf2b_M3_LD_sim', ...
-    '20250411_200024_Surf2a_Surf2b_M3_LCB_exp_sim', ...
-    '20250411_201512_Surf2a_Surf2b_M3_IVR2_sim', ...
-    '20250411_203327_Surf2c_M1_sim', ...
-    '20250411_210059_Surf2c_M2_LD_sim', ...
-    '20250411_211203_Surf2c_M2_LCB_exp_sim', ...
-    '20250411_212254_Surf2c_M2_IVR2_sim', ...
-    '20250411_213603_Surf2a_Surf2c_M3_LD_sim', ...
-    '20250411_215047_Surf2a_Surf2c_M3_LCB_exp_sim', ...
-    '20250411_220526_Surf2a_Surf2c_M3_IVR2_sim', ...
-    '20250411_222353_Surf3a_M1_sim', ...
-    '20250411_225133_Surf3a_M2_LD_sim', ...
-    '20250411_230426_Surf3a_M2_LCB_exp_sim', ...
-    '20250411_231650_Surf3a_M2_IVR2_sim', ...
-    '20250411_233036_Surf3a_Surf3a_M3_LD_sim', ...
-    '20250411_234649_Surf3a_Surf3a_M3_LCB_exp_sim', ...
-    '20250412_000302_Surf3a_Surf3a_M3_IVR2_sim', ...
-    '20250412_002059_Surf3b_M1_sim', ...
-    '20250412_004825_Surf3b_M2_LD_sim', ...
-    '20250412_005932_Surf3b_M2_LCB_exp_sim', ...
-    '20250412_011016_Surf3b_M2_IVR2_sim', ...
-    '20250412_012311_Surf3a_Surf3b_M3_LD_sim', ...
-    '20250412_013719_Surf3a_Surf3b_M3_LCB_exp_sim', ...
-    '20250412_015104_Surf3a_Surf3b_M3_IVR2_sim', ...
-    '20250412_020651_Surf3c_holes_M1_sim', ...
-    '20250412_023408_Surf3c_holes_M2_LD_sim', ...
-    '20250412_024008_Surf3c_holes_M2_LCB_exp_sim', ...
-    '20250412_024559_Surf3c_holes_M2_IVR2_sim', ...
-    '20250412_025355_Surf3a_Surf3c_holes_M3_LD_sim', ...
-    '20250412_030116_Surf3a_Surf3c_holes_M3_LCB_exp_sim', ...
-    '20250412_030822_Surf3a_Surf3c_holes_M3_IVR2_sim'
- };
-
 addpath(genpath(fullfile(pwd)));
+addpath(genpath(fullfile(pwd)))
+basepath = "Data/Results/20250423_SimStudy4/";
+dirnames = dir(basepath+"*sim*");
+trial_filenames = {dirnames.name};
 
 %% --- Master Loop for All Trials ---
 for k = 1:numel(trial_filenames)
@@ -81,7 +19,7 @@ for k = 1:numel(trial_filenames)
     
     % --- Start of Plotting Logic for a Single Trial ---
     fig = figure('Visible', 'off'); % Create a new, invisible figure for each trial
-    
+
     % Define the number of testpoints for each column of the figure
     if method == 1 && contains(SurfB, "Surf1")
         testpoint_counts = [3, 4, 5, 6, 15];
@@ -124,15 +62,17 @@ for k = 1:numel(trial_filenames)
         clim(ax(row, j), [0 0.165]);
         colormap(ax(row, j), 'viridis');
         if method == 1
-            title(ax(row, j), sprintf('%d x %d Test Points', num_points, num_points));
+            title(ax(row, j), sprintf('n = %d', num_points^2));
         else
-            title(ax(row, j), sprintf('%d Test Points', num_points));
+            title(ax(row, j), sprintf('n = %d', num_points));
         end
         if j == 1
-            xlabel(ax(row, j), 'x [mm]');
-            ylabel(ax(row, j), 'y [mm]');
-            zlabel(ax(row, j), 'z [mm]');
+            zlabel(ax(row, j), 'z (mm)');
+        else
+            zticklabels([])
         end
+        xticklabels([])
+        yticklabels([])
 
         % Plot 2 (Middle Row)
         row = 2;
@@ -152,9 +92,11 @@ for k = 1:numel(trial_filenames)
         clim(ax(row, j), [0 0.165]);
         colormap(ax(row, j), 'viridis');
         if j == 1
-            xlabel(ax(row, j), 'x [mm]');
-            ylabel(ax(row, j), 'y [mm]');
+            ylabel(ax(row, j), 'y (mm)');
+        else
+            yticklabels([])
         end
+        xticklabels([])
 
         % Plot 3 (Bottom Row)
         row = 3;
@@ -202,9 +144,11 @@ for k = 1:numel(trial_filenames)
         axis(ax(row, j), 'equal', [-30+pad 30-pad -30+pad 30-pad]);
         view(ax(row, j), 2);
         if j == 1
-            xlabel(ax(row, j), 'x [mm]');
-            ylabel(ax(row, j), 'y [mm]');
+            ylabel(ax(row, j), 'y (mm)');
+        else
+            yticklabels([])
         end
+        xlabel(ax(row, j), 'x (mm)');
     end
     
     % --- Final Layout for the Current Figure ---
@@ -214,7 +158,7 @@ for k = 1:numel(trial_filenames)
     pos2 = get(ax(2,5), 'Position'); 
     uniform_colorbar_left = pos1(1) + pos1(3) + horizontal_gap; 
     cb1 = colorbar(ax(1,5)); 
-    cb1.Label.String = 'Absolute Error [mm]';
+    cb1.Label.String = 'Absolute Error (mm)';
     cb1_height = (pos1(2) + pos1(4)) - pos2(2); 
     cb1.Position = [uniform_colorbar_left, pos2(2), uniform_colorbar_width, cb1_height];
     pos3 = get(ax(3,5), 'Position'); 
@@ -233,17 +177,70 @@ for k = 1:numel(trial_filenames)
     
     % --- SAVE FIGURES (Updated Method) ---
     % 1. Save as MATLAB Figure (.fig)
-    saveas(fig, [current_trial, '.fig']);
-    
+    saveas(fig, basepath+current_trial+'/'+current_trial+'_progression.fig');
+
     % 2. Save as PNG (Raster)
-    exportgraphics(fig, [current_trial, '.png'], 'Resolution', 300);
-    
+    exportgraphics(fig, basepath+current_trial+'/'+current_trial+'_progression.png', 'Resolution', 300);
+
     % 3. Save as EPS (Vector)
-    exportgraphics(fig, [current_trial, '.eps']);
-    
+    % exportgraphics(fig, basepath+current_trial+'/'+current_trial+'_progression.eps', 'ContentType','vector');
+
     fprintf('Saved: %s (.fig, .png, .eps)\n', current_trial);
-    
+
     close(fig); % Close the figure to free up memory
 end
 
 fprintf('All trials have been processed and saved.\n');
+
+%% --- Just Paper Figure 6 ---
+close all
+trial_filenames = {'20250423_194156_Surf2b_M1_sim',...
+    '20250423_202116_Surf2b_M2_LCB_exp_sim',...
+    '20250423_205721_Surf2a_Surf2b_M3_LCB_exp_sim'};
+figures_filenames = basepath + trial_filenames + "/" + trial_filenames + "_progression.fig";
+new_filenames = {'Surf2b_M1_sim', 'Surf2b_M2_sim','Surf2b_M3_sim'};
+new_path = "Paper Figures/6 Method Comparison/";
+fig_new = figure('Units','inches',"Position",[0 0 6 11.5]);
+t = tiledlayout(fig_new,3,1,'TileSpacing','compact','Padding','tight');
+for k = 1:numel(trial_filenames)
+    fig_old = openfig(figures_filenames{k});
+    set(fig_old, 'Visible', 'on')
+    axesHandles = findobj(fig_old, 'Type', 'axes');
+    t0 = tiledlayout(t,3,1,'TileSpacing','compact','Padding','tight');
+    t0.Layout.Tile = k;
+    t1 = tiledlayout(t0,2,5,'TileSpacing','compact','Padding','tight');
+    t1.Layout.Tile = 1;
+    t1.Layout.TileSpan = [2 1];
+    t2 = tiledlayout(t0,1,5,'TileSpacing','compact','Padding','tight');
+    t2.Layout.Tile = 3;
+    axesOrder = reshape(reshape(flip(1:15),5,3)',[],1);
+    for i=2:length(axesHandles)
+        if axesOrder(i-1) <= 10
+            axesHandles(i).Parent = t1;
+            axesHandles(i).Layout.Tile = axesOrder(i-1);
+        else
+            axesHandles(i).Parent = t2;
+            axesHandles(i).Layout.Tile = axesOrder(i-1)-10;
+        end
+    end
+    close(fig_old)
+    cbar = findobj(t1, 'Type', 'colorbar');
+    cbar.Layout.Tile = 'east';
+    fontsize(fig_new, 12,'points')
+    tile = nexttile(t2,5);
+    colormap(tile,[0.8353 0.3686 0; 0 0.4471 0.6980]); 
+    cb2 = colorbar(tile);
+    % cb2.Label.String = 'Curve Condition';
+    cb2.Ticks = [0.25, 0.75];
+    cb2.TickLabels = {'AE>\alpha', 'AE<\alpha'};
+    cb2.Layout.Tile = 'east';
+end
+
+for k = 1:3
+    tiles = flip(t.Children);
+    title(tiles(k),"M"+string(k),'fontsize', 20, 'fontweight','bold')
+end
+
+saveas(fig_new,new_path+"Figure6.fig");
+exportgraphics(fig_new,new_path+"Figure6.png", 'Resolution', 300);
+exportgraphics(fig_new,new_path+"Figure6.eps", 'ContentType','vector');

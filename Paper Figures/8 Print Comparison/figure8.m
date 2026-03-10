@@ -39,11 +39,14 @@ end
 nplots = 2 ;
 figsize = size(trials);
 figsize(1) = figsize(1)*nplots;
-fig8 = figure('Name', 'Physical Validation', 'Visible', 'on', 'Units', 'pixels', 'Position', [-250 1074 591 715]);
+fig8 = figure('Name', 'Physical Validation', 'Visible', 'on', 'Units', 'inches', 'Position', [0 1.7 6 5.94]);
 t1 = tiledlayout(size(surf_images,1),size(surf_images,2),'TileSpacing','tight','Padding','tight');
+fig8b = figure('Name', 'Physical Validation', 'Visible', 'on', 'Units', 'inches', 'Position', [0 0 6 1.7]);
+t2 = tiledlayout('flow','TileSpacing','tight','Padding','compact');
 count = 1;
 for j=1:3
 for k=1:3
+figure(fig8)
 load(trials{j,k},'testpoints','modelPerformance');
 ax = nexttile(t1,(j-1)*(size(surf_images,1))+k);
 hold(ax, 'on');
@@ -51,7 +54,7 @@ hold(ax, 'on');
 try
     img = imread(strcat("print ims/marked up/",surf_images{j,k}));
 catch ME
-    text(0.5, 0.5, 'Image not found', 'Parent', ax, 'HorizontalAlignment', 'center', 'FontSize', fontSize);
+    text(0.5, 0.5, 'Image not found', 'Parent', ax, 'HorizontalAlignment', 'center', 'FontSize', 12);
     warning('Could not read image file: %s. Error: %s', surf_images{j,k}, ME.message);
 end
 
@@ -79,32 +82,36 @@ if k==1
     ylabel("Surface "+sNames{j,k},"FontWeight","bold")
 end
 
-ax = nexttile(t1,'south');
+figure(fig8b)
+nexttile(t2,1)
 hold on
 C = orderedcolors('gem') ;
 colors = dictionary(["1B","2B","3B"],{C(1,:),C(2,:),C(3,:)});
 markers = dictionary(["M1","M2","M3"],["o","^","s"]);
-plot(modelPerformance.n,modelPerformance.CV.MAE,'LineWidth',1.5,'DisplayName',tNames{j,k},'Marker',markers(mNames{j,k}),'MarkerSize',6)
+p=plot(modelPerformance.n,modelPerformance.CV.MAE,'LineWidth',1.5,'Marker',markers(mNames{j,k}),'MarkerSize',6,'HandleVisibility','off');
+plot(NaN,NaN,'LineStyle','none','Color',p.Color,'DisplayName',tNames{j,k},'Marker',markers(mNames{j,k}),'MarkerSize',6);
 yscale('log')
-ylabel('MAE_{CV} [mm]')
+ylim([1e-2,1e0])
+yticks([1e-2,1e0])
+ylabel('MAE_{CV} (mm)')
 xscale('log')
 xlabel('Number of Sampled Points, n')
 end
 end
-l=legend('NumColumns',2);
-l.Layout.Tile = 'south';
+fontsize(fig8,12,'points')
+fontsize(fig8b,12,'points')
+l=legend('FontSize',8,'Location','southoutside','Orientation','horizontal');
+l.Layout.Tile='south';
 
 if blank
 % --- SAVE FIGURE ---
 fname = 'Paper Figures/8 Print Comparison/Figure8';
 
 % Save as PNG
-png_filename = [fname, '.png'];
-exportgraphics(fig8, png_filename, 'Resolution', 300);
-fprintf('Saved PNG: %s\n', png_filename);
+exportgraphics(fig8, fname+"a.png", 'Resolution', 300);
+exportgraphics(fig8b, fname+"b.png", 'Resolution', 300);
 
 % Save as EPS
-eps_filename = [fname, '.eps'];
-exportgraphics(fig8, eps_filename, 'ContentType','vector'); % -depsc is for color EPS
-fprintf('Saved EPS: %s\n', eps_filename);
+exportgraphics(fig8, fname+"a.eps", 'ContentType','vector'); % -depsc is for color EPS
+exportgraphics(fig8b, fname+"b.eps", 'ContentType','vector'); % -depsc is for color EPS
 end

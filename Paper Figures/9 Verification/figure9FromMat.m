@@ -1,11 +1,12 @@
 clear; clc; close all;
+addpath(genpath(pwd))
 
 %% 1. Manual Constants (Visual Configuration)
 % Adjust these values to control the appearance of the output figures
-figSize          = [100, 100, 550, 650];    % Figure Size [Left Bottom Width Height]
-imageRowWeight   = 0.7;                     % Image Size Control: 1.0 = equal to plot. <1.0 = smaller, >1.0 = bigger.
+figSize          = [0, 1, 15, 5.25];            % Figure Size [Left Bottom Width Height] in inches
+imageRowWeight   = 1.25;                     % Image Size Control: 1.0 = equal to plot. <1.0 = smaller, >1.0 = bigger.
 axisFontSize     = 12;                      % Font size for axis ticks and labels
-legendFontSize   = 10;                      % Font size for the legend
+legendFontSize   = 12;                      % Font size for the legend
 plotLineWidth    = 1.5;                     % Line width for the data plots
 connectLineWidth = 1.5;                     % Line width for the red/magenta connecting lines
 
@@ -30,18 +31,38 @@ initial_sampling_time = {
 
 minimum_TCS_points = {15, 30, 60};
 
-imageVector = {
-    's1m2v.JPG', ...
-    's1m2p.JPG', ...
-    's2m2v.JPG', ...
-    's2m2p.JPG', ...
-    's3m2v.JPG', ...
-    's3m2p.JPG'
+imageVector = "printims/cropped/" + {
+    's1m2v.png', ...
+    's1m2p.png', ...
+    's2m2v.png', ...
+    's2m2p.png', ...
+    's3m2v.png', ...
+    's3m2p.png'
 };
 
 % Initialize array to track the figures created by this script
 numTrials = size(physicalStudyMethod2Trials, 2);
-figsToKeep = gobjects(1, numTrials); 
+
+% --- Figure Creation ---
+f = figure('Units','inches','Position', figSize, 'Color', 'w', 'Name', ['Trial ' num2str(i)]);
+figsToKeep = f; 
+
+% --- GRID SPANNING SETUP ---
+gridResolution = 20;
+bottomPadding = 3;
+
+% Calculate rows for images vs plot based on weight
+imgFraction = imageRowWeight / (1 + imageRowWeight);
+imgRows = round(gridResolution * imgFraction);
+imgRows = max(1, min(gridResolution-2, imgRows)); % Safety clamp
+plotRows = gridResolution - imgRows;
+
+% Create a tiledlayout container with an invisible axis at the bottom
+% (creates enough space for the custom axis labels)
+tile = tiledlayout(gridResolution+bottomPadding, numTrials*2, 'TileSpacing', 'compact','Padding','tight');
+
+ax = nexttile(tile,gridResolution*numTrials*2+1,[bottomPadding,numTrials*2]);
+ax.Visible='off';
 
 %% 3. Loop and Plot Generation
 for i = 1:numTrials
@@ -83,21 +104,6 @@ for i = 1:numTrials
     end
 
     TCS_points_ver = TCS_points(1:length(Verification_CV_MAE));
-
-    % --- Figure Creation ---
-    f = figure('Position', figSize, 'Color', 'w', 'Name', ['Trial ' num2str(i)]);
-    figsToKeep(i) = f; 
-    
-    % --- GRID SPANNING SETUP ---
-    gridResolution = 20;
-    
-    % Calculate rows for images vs plot based on weight
-    imgFraction = imageRowWeight / (1 + imageRowWeight);
-    imgRows = round(gridResolution * imgFraction);
-    imgRows = max(1, min(gridResolution-2, imgRows)); % Safety clamp
-    plotRows = gridResolution - imgRows;
-    
-    t = tiledlayout(gridResolution, 2, 'TileSpacing', 'compact', 'Padding', 'loose');
     
     % --- Top Row: Images ---
     idx1 = (i-1)*2 + 1; 
@@ -106,61 +112,76 @@ for i = 1:numTrials
     wState = warning('off', 'MATLAB:imagesci:imjpgbaselineinfo:noncompliance');
 
     % Span the top tiles (imgRows tall, 1 column wide)
-    ax1 = nexttile([imgRows, 1]); 
+    ax1 = nexttile(tile,2*i-1,[imgRows, 1]); 
     if isfile(imageVector{idx1})
         imshow(imageVector{idx1}, 'InitialMagnification', 'fit');
-        title(['Physical Setup (' imageVector{idx1} ')'], 'Interpreter', 'none', 'FontWeight', 'bold');
+        title('Physical Setup', 'Interpreter', 'none', 'FontWeight', 'bold');
     else
         text(0.5, 0.5, 'Image Not Found', 'HorizontalAlignment', 'center');
         axis off; 
     end
+    idx_min = minimum_TCS_points{i};
+    time_min = All_t(idx_min);
+    title(sprintf('$n_{min}$=%d', idx_min),'Interpreter','latex','FontName','Helvetica')
+    fontsize(axisFontSize,'points')
     
-    ax2 = nexttile([imgRows, 1]); 
+    ax2 = nexttile(tile,2*i, [imgRows, 1]); 
     if isfile(imageVector{idx2})
         imshow(imageVector{idx2}, 'InitialMagnification', 'fit');
-        title(['Verification Setup (' imageVector{idx2} ')'], 'Interpreter', 'none', 'FontWeight', 'bold');
+        title('Verification Setup', 'Interpreter', 'none', 'FontWeight', 'bold');
     else
         text(0.5, 0.5, 'Image Not Found', 'HorizontalAlignment', 'center');
         axis off;
     end
     
+    max_TCS_points = max(TCS_points);
+    time_stop = All_t(max_TCS_points);
+    title(sprintf('$n^*$=%d', max_TCS_points),'Interpreter','latex')
+    fontsize(axisFontSize,'points')
     warning(wState);
 
     % --- Bottom Row: Data Plot ---
     % Span the bottom tile (plotRows tall, 2 columns wide)
-    ax3 = nexttile([plotRows, 2]); 
+    ax3 = nexttile(tile,2*numTrials*imgRows+2*i-1,[plotRows, 2]); 
     
     plot(TCS_points, Physical_CV_MAE, 'bo-', 'LineWidth', plotLineWidth, 'MarkerFaceColor', 'b');
     hold on;
     plot(TCS_points, MAE_n_star, 'ko-', 'LineWidth', plotLineWidth, 'MarkerFaceColor', 'k');
     plot(TCS_points_ver, Verification_CV_MAE, 'go-', 'LineWidth', plotLineWidth, 'MarkerFaceColor', 'g');
     
-    max_TCS_points = max(TCS_points);
-    
     % Stopping Criteria Line
-    time_stop = All_t(max_TCS_points);
-    label_stop = sprintf('Stopping Criteria\n(n=%d, t=%.0fminutes)', max_TCS_points, time_stop);
-    xline(max_TCS_points, '--r', label_stop, 'LineWidth', plotLineWidth, 'FontSize', axisFontSize-1, 'Interpreter', 'tex');
+    label_stop = [];%'$n^*$';
+    xline(max_TCS_points, '--r', label_stop, 'LineWidth', plotLineWidth, 'FontSize', axisFontSize-1, 'Interpreter', 'latex');
     
     % New (Minimum) Criteria Line
-    idx_min = minimum_TCS_points{i};
-    time_min = All_t(idx_min);
-    label_min = sprintf('New\n(n=%d, t=%.0fminutes)', idx_min, time_min);
-    xline(idx_min, '--m', label_min, 'LineWidth', plotLineWidth, 'FontSize', axisFontSize-1, 'Interpreter', 'tex');
+    label_min = [];%"$n_{min}$";
+    xline(idx_min, '--m', label_min, 'LineWidth', plotLineWidth, 'FontSize', axisFontSize-1, 'Interpreter', 'latex');
     
     hold off; 
     
     % --- Axis Formatting ---
     xlim([0, max_TCS_points + 5]);
-    
+    ylim([1e-3,1e0])
+    yscale('log')
+
     % Y-Axis Label
+    if i==1
     ylabel('Mean Absolute Error, mm', 'FontSize', axisFontSize, 'Interpreter', 'tex');
-    
+    else
+    yticklabels([])
+    end
+
     % Legend
-    legend({'Physical CV MAE','MAE n*', 'Verification CV MAE'}, ...
-        'Location', 'northwest', 'FontSize', legendFontSize, 'Interpreter', 'tex');
-    
+    if i==1
+    l = legend({'Physical CV MAE','MAE n*', 'Verification CV MAE'}, ...
+        'Location', 'southoutside', 'FontSize', legendFontSize,...
+        'Interpreter', 'tex','Orientation','horizontal','Color','red');
+    l.Layout.Tile = 'south';
+    end
+
     grid on;
+    
+    axis(ax3)
     set(gca, 'FontSize', axisFontSize); 
     set(gca, 'TickLabelInterpreter', 'tex');
     
@@ -178,8 +199,8 @@ for i = 1:numTrials
     
     % Draw Manual Text Labels for Ticks
     y_limits = ylim;
-    y_range = y_limits(2) - y_limits(1);
-    y_tick_pos = y_limits(1) - (y_range * 0.03); 
+    y_range = log10(y_limits(2)) - log10(y_limits(1));
+    y_tick_pos = 10^(log10(y_limits(1)) - (y_range * 0.02)); 
     
     for k = 1:length(final_xticks)
         idx = final_xticks(k);
@@ -198,10 +219,10 @@ for i = 1:numTrials
     
     % --- X-Axis Main Labels (Double Stacked) ---
     x_center = mean(xlim);
-    y_label_pos = y_limits(1) - (y_range * 0.18); 
+    y_label_pos = 10^(log10(y_limits(1)) - (y_range * 0.3)); 
     
     % Only the word "min" is italicized
-    text(x_center, y_label_pos, {'Number of Points, n'; 'Time taken to sample, \itmin'}, ...
+    text(x_center, y_label_pos, {'Number of Points, \itn'; 'Time Elapsed (min)'}, ...
         'HorizontalAlignment', 'center', ...
         'VerticalAlignment', 'top', ...
         'FontSize', axisFontSize, ...
@@ -246,20 +267,12 @@ for i = 1:numTrials
     annotation('line', [img2_CenterX, target2_NormX], [midY, midY], 'Color', 'r', 'LineWidth', connectLineWidth);
     annotation('line', [target2_NormX, target2_NormX], [midY, plotTopY], 'Color', 'r', 'LineWidth', connectLineWidth);
 
-    % --- SAVE FIGURE ---
-    output_basename = strrep(f.Name, ' ', '_');
-    
-    % Save as PNG
-    png_filename = [output_basename, '.png'];
-    print(f, png_filename, '-dpng', '-r1000');
-    fprintf('Saved PNG: %s\n', png_filename);
-    
-    % Save as EPS
-    eps_filename = [output_basename, '.eps'];
-    print(f, eps_filename, '-depsc'); 
-    fprintf('Saved EPS: %s\n', eps_filename);
-
 end
+
+% --- SAVE FIGURE ---
+savefig(f,'Figure9.fig')
+exportgraphics(f,'Figure9.png','Resolution',600);
+exportgraphics(f,'Figure9.eps','ContentType','vector')
 
 % 4. Final Cleanup (Smart Close)
 % Find all open figures

@@ -9,20 +9,26 @@
 close all; clear; clc;
 addpath(genpath(fullfile(pwd)))
 surfs = {@Surface1a,@Surface1b,@Surface1c,@Surface2a,@Surface2b,@Surface2c,@Surface3a,@Surface3b,@Surface3c};
-
+surfOrder = [7 8 9 4 5 6 1 2 3];
+surfs = surfs(surfOrder);
 Inputs
+
+fontSizeLarge = 8;
+fontSizeSmall = 6;
 
 x=linspace(x_min+pad, x_max-pad, res_s);
 y=linspace(y_min+pad, y_max-pad, res_s);
 [x, y]=meshgrid(x,y);
 x=x(:);y=y(:);
 
-f = figure('Position',[0 0 600 460]);
+f = figure('Units','inches','Position',[0 0 2.7 2.2]);
+% set(f,'Units','pixels')
 %title('Trial Surfaces')
-tilePos = [.2 .2 .75 .75];
+tilePos = [.2 .25 .75 .75];
 t = tiledlayout(f,3,3,'TileSpacing','tight','Padding','loose','Position',tilePos);
 stats = readtable("Paper Figures/3 Surfaces/SurfaceStats.csv") ;
-for i=[7 8 9 4 5 6 1 2 3]
+stats = stats(surfOrder,:);
+for i=1:9
     nexttile
     dasurf=surfs{i};
     z=dasurf(x,y);
@@ -35,23 +41,27 @@ for i=[7 8 9 4 5 6 1 2 3]
     axis equal
     axis off
     grid off
+    clim([0,15])
 end
 colormap('viridis')
+annotation(f,"rectangle",[0 0 1 1],"Color",[.99 .99 .99])
+exportgraphics(f,'Paper Figures/3 Surfaces/Figure3plots.png','Resolution',600)
+
 gap = 0.023;
 tick = 0.01;
-DevLiney = 0.163;
+DevLiney = 0.16;
 CompLinex = 0.125;
-annotation('arrow',[tilePos(1) tilePos(1)+tilePos(3)],[DevLiney DevLiney])
-annotation('arrow',[CompLinex CompLinex],[tilePos(2)+gap tilePos(2)+tilePos(4)])
+annotation('arrow',[tilePos(1) 1],[DevLiney DevLiney],'HeadWidth',fontSizeSmall,'HeadLength',fontSizeSmall)
+annotation('arrow',[CompLinex CompLinex],[tilePos(2)+gap 1],'HeadWidth',fontSizeSmall,'HeadLength',fontSizeSmall)
 annotation('textbox',[tilePos(1)+tilePos(3)/2-0.1 0 .2 .05],'String','Deviation','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','bottom',...
-    'FontSize',12,'FontWeight','bold','Margin',0,'FitBoxToText','off')
+    'FontSize',fontSizeLarge,'FontWeight','bold','Margin',0,'FitBoxToText','off')
 annotation('textbox',[0.04 tilePos(2)+tilePos(4)/2-0.1 .2 .05],'String','Complexity','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','top',...
-    'Rotation',90,'FontSize',12,'FontWeight','bold','Margin',0)
+    'Rotation',90,'FontSize',fontSizeLarge,'FontWeight','bold','Margin',0)
 
-
-Ax = tilePos(1)+4 *tilePos(3)/30;
-Bx = tilePos(1)+15*tilePos(3)/30;
-Cx = tilePos(1)+26*tilePos(3)/30;
+xTickSpace = 12/30 ;
+Ax = tilePos(1)+tilePos(3)*(0.5-xTickSpace);
+Bx = tilePos(1)+tilePos(3)*(0.5);
+Cx = tilePos(1)+tilePos(3)*(0.5+xTickSpace);
 % axposA = nexttile(t,7).Position ;
 % axposB = nexttile(t,8).Position ;
 % axposC = nexttile(t,9).Position ;
@@ -63,9 +73,9 @@ ABCy = 0.05 ;
 annotation('line',[Ax Ax],[DevLiney+tick DevLiney-tick])
 annotation('line',[Bx Bx],[DevLiney+tick DevLiney-tick])
 annotation('line',[Cx Cx],[DevLiney+tick DevLiney-tick])
-annotation('textbox',[Ax-.05 ABCy .1 .1],'String','  A\newlineLow','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','bottom','FontSize',12,'Margin',0)
-annotation('textbox',[Bx-.05 ABCy .1 .1],'String','  B\newlineMid','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','bottom','FontSize',12,'Margin',0)
-annotation('textbox',[Cx-.05 ABCy .1 .1],'String','  C\newlineHigh','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','bottom','FontSize',12,'Margin',0)
+annotation('textbox',[Ax-.045 ABCy .1 .1],'String','  A\newlineLow','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','bottom','FontSize',fontSizeSmall,'Margin',0)
+annotation('textbox',[Bx-.05 ABCy .1 .1],'String','  B\newlineMid','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','bottom','FontSize',fontSizeSmall,'Margin',0)
+annotation('textbox',[Cx-.045 ABCy .1 .1],'String','  C\newlineHigh','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','bottom','FontSize',fontSizeSmall,'Margin',0)
 
 y1 = tilePos(2)+4 *tilePos(4)/30;
 y2 = tilePos(2)+15*tilePos(4)/30;
@@ -81,17 +91,42 @@ x123 = 0.07;
 annotation('line',[CompLinex+tick CompLinex-tick],[y1 y1])
 annotation('line',[CompLinex+tick CompLinex-tick],[y2 y2])
 annotation('line',[CompLinex+tick CompLinex-tick],[y3 y3])
-annotation('textbox',[x123-.05 y1-.05 .1 .1],'String','  1\newlineLow','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',12,'Margin',0)
-annotation('textbox',[x123-.05 y2-.05 .1 .1],'String','  2\newlineMid','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',12,'Margin',0)
-annotation('textbox',[x123-.05 y3-.05 .1 .1],'String','  3\newlineHigh','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',12,'Margin',0)
+annotation('textbox',[x123-.05 y1-.05 .1 .1],'String','  1\newlineLow','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',fontSizeSmall,'Margin',0)
+annotation('textbox',[x123-.05 y2-.05 .1 .1],'String','  2\newlineMid','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',fontSizeSmall,'Margin',0)
+annotation('textbox',[x123-.05 y3-.05 .1 .1],'String','  3\newlineHigh','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','middle','FontSize',fontSizeSmall,'Margin',0)
 
-fontsize(scale=1.5)
-statOffsets = [0 0.02 .04]-.05 ;
-for i = 1:9
+statOffsets = [0.01 0.03 .06] ;
+for i=1:9
     axpos = nexttile(t,i).Position;
-    annotation('textbox',[axpos(1)+axpos(3)/2 axpos(2)+statOffsets(ceil(i/3)) .1 .1],'String',sprintf('n_{CP} = %i, MAE_A = %.3f',stats.CriticalPoints(i),stats.Devation(i)),'FontSize',12,'FontWeight','normal','HorizontalAlignment','center','VerticalAlignment','top','LineStyle','none')
+    annotation('textbox',[axpos(1)+axpos(3)/2 axpos(2)+statOffsets(ceil(i/3)) .1 .1],'String',sprintf('n_{CP} = %i\nMAE_A = %.3f',stats.CriticalPoints(i),stats.Devation(i)),'FontSize',fontSizeSmall,'FontWeight','normal','HorizontalAlignment','center','VerticalAlignment','top','LineStyle','none')
 end
 
-savefig('Paper Figures/3 Surfaces/TrialSurface.fig')
-exportgraphics(f,'Paper Figures/3 Surfaces/TrialSurface.png')
-exportgraphics(f,'Paper Figures/3 Surfaces/TrialSurface.eps')
+savefig('Paper Figures/3 Surfaces/Figure3.fig')
+exportgraphics(f,'Paper Figures/3 Surfaces/Figure3.png')
+ax_list = findobj(t, 'type', 'axes');
+for ax = ax_list'
+    cla(ax);
+end
+exportgraphics(f,'Paper Figures/3 Surfaces/Figure3text.eps','ContentType','vector','BackgroundColor','none')
+
+%%
+f2 = figure('Units','inches','Position',[0 0 2.7 1.8]);
+c=colorbar;
+colormap('viridis')
+clim([0,15])
+c.Limits=[0,15];
+c.Ticks = [0,15];
+c.TickLabels = {"0","15"};
+axPos = get(gca, 'Position');
+cPos = c.Position;
+cPos(3) = .04 ;
+c.Position = cPos;
+set(gca,'Position',axPos)
+c.Label.String = "Height (mm)";
+c.Label.FontSize = fontSizeSmall;
+c.FontSize = fontSizeSmall;
+cLabelPos = c.Label.Position;
+cLabelPos(1) = 1.1;
+c.Label.Position = cLabelPos;
+annotation(f2,"rectangle",[0 0 1 1],"Color",[.99 .99 .99])
+exportgraphics(f2,'Paper Figures/3 Surfaces/Figure3cbar.eps','ContentType','vector','BackgroundColor','none')
