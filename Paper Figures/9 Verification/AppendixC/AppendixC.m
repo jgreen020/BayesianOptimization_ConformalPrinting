@@ -1,0 +1,131 @@
+%% Figure: Final Sampling Pattern with Separate PNG and SVG Folders
+close all; clear; clc;
+
+% --- List of all trial filenames ---
+trial_filenames = {
+    '20250515_225518_Surf1b_M1_real', ...
+    '20250515_192421_Surf1b_M2_LCB_exp_real', ...
+    '20250515_205608_Surf1a_Surf1b_M3_LCB_exp_real', ...
+    '20250517_001949_Surf2b_M1_real', ...
+    '20250516_174734_Surf2b_M2_LCB_exp_real', ...
+    '20250516_220758_Surf2a_Surf2b_M3_LCB_exp_real', ...
+    '20250923_213409_Surf3b_M1_real', ...
+    '20250923_172121_Surf3b_M2_LCB_exp_real', ...
+    '20250923_184535_Surf3a_Surf3b_M3_LCB_exp_real', ...
+    '20251122_013740_Surf1b_M2_LCB_exp_real', ... % Validation Trial
+    '20251121_171838_Surf2b_M2_LCB_exp_real', ... % Validation Trial
+    '20251121_231322_Surf3b_M2_LCB_exp_real', ... % Validation Trial
+};
+
+addpath(genpath(fullfile(pwd)));
+
+% --- Create Output Directories ---
+baseDir = 'Output_Figures';
+pngDir  = fullfile(baseDir, 'PNGs');
+svgDir  = fullfile(baseDir, 'SVGs');
+
+if ~exist(baseDir, 'dir'), mkdir(baseDir); end
+if ~exist(pngDir, 'dir'),  mkdir(pngDir);  end
+if ~exist(svgDir, 'dir'),  mkdir(svgDir);  end
+
+% --- Figure Layout Constants (Inches) ---
+figWidth   = 7.5;   
+figHeight  = 2.0;   
+plotH      = 1.4;   
+plotW_sq   = 1.4;   
+bottomPos  = 0.4;   
+leftMargin = 0.6;   
+gap        = 0.4;   
+
+for k = 1:numel(trial_filenames)
+    current_trial = trial_filenames{k};
+    
+    full_path = current_trial;
+    if ~contains(full_path, '.mat'), full_path = [full_path, '.mat']; end
+    if ~exist(full_path, 'file'), continue; end
+    
+    load(full_path);
+    fprintf('Processing: %s\n', current_trial);
+
+    % --- 1. Path Logic based on Date Timestamp ---
+    s_tokens = regexp(current_trial, 'Surf(\d)', 'tokens', 'once');
+    m_tokens = regexp(current_trial, 'M(\d)', 'tokens', 'once');
+    s_num = s_tokens{1}; m_num = m_tokens{1};
+    
+    target_folder = ['surface', s_num]; 
+    
+    % Determine prefix based on date (Nov 2025 vs others)
+    if startsWith(current_trial, '202511')
+        active_prefix = ['vs', s_num, 'm', m_num];
+    else
+        active_prefix = ['s', s_num, 'm', m_num];
+    end
+    
+    extensions = {'.png', '.JPG', '.jpg'};
+    top_view_file = ''; iso_view_file = '';
+    for e = 1:numel(extensions)
+        test_top = fullfile(target_folder, [active_prefix, 'top', extensions{e}]);
+        test_iso = fullfile(target_folder, [active_prefix, 'iso', extensions{e}]);
+        if exist(test_top, 'file'), top_view_file = test_top; end
+        if exist(test_iso, 'file'), iso_view_file = test_iso; end
+    end
+
+    % --- 2. Data ---
+    if exist('mask', 'var') && length(mask) == size(testpoints, 1)
+        plot_data = testpoints(mask, :);
+    else
+        plot_data = testpoints;
+    end
+
+    % --- 3. Create Figure ---
+    fig = figure('Name', current_trial, 'Units', 'inches', ...
+                 'Position', [1 1 figWidth figHeight], ...
+                 'Color', 'w', 'Renderer', 'painters', 'Visible', 'on');
+
+    % AXES 1: Sampling Pattern
+    ax1 = axes('Units', 'inches', 'Position', [leftMargin, bottomPos, plotW_sq, plotH]);
+    hold(ax1, 'on');
+    plot(ax1, plot_data(:,1), plot_data(:,2), 'r.', 'MarkerSize', 8);
+    axis(ax1, 'square'); xlim(ax1, [-30 30]); ylim(ax1, [-30 30]);
+    set(ax1, 'XTick', -30:15:30, 'YTick', -30:15:30, 'FontSize', 8);
+    xlabel('x [mm]'); ylabel('y [mm]');
+    grid on;
+
+    % AXES 2: Top View
+    xPos2 = leftMargin + plotW_sq + gap;
+    ax2 = axes('Units', 'inches', 'Position', [xPos2, bottomPos, plotW_sq, plotH]);
+    if ~isempty(top_view_file)
+        imshow(imread(top_view_file), 'Parent', ax2);
+    else
+        axis off;
+    end
+
+    % AXES 3: Isometric View
+    xPos3 = xPos2 + plotW_sq + gap;
+    if ~isempty(iso_view_file)
+        img_iso = imread(iso_view_file);
+        [hI, wI, ~] = size(img_iso);
+        plotW_iso = plotH * (wI / hI); 
+        ax3 = axes('Units', 'inches', 'Position', [xPos3, bottomPos, plotW_iso, plotH]);
+        imshow(img_iso, 'Parent', ax3);
+    else
+        ax3 = axes('Units', 'inches', 'Position', [xPos3, bottomPos, plotW_sq, plotH]);
+        axis off;
+    end
+
+    fontsize(fig, 10, 'points');
+    drawnow; 
+
+    % --- 4. SAVE PLOTS TO SEPARATE FOLDERS ---
+    % Define specific paths for PNG and SVG
+    png_full_path = fullfile(pngDir, [current_trial, '.png']);
+    svg_full_path = fullfile(svgDir, current_trial); % print adds .svg automatically
+
+    % Save PNG
+    exportgraphics(fig, png_full_path, 'Resolution', 300);
+    
+    % Save SVG (True Vector)
+    print(fig, svg_full_path, '-dsvg', '-painters'); 
+
+    fprintf('Saved: PNG -> %s | SVG -> %s\n', png_full_path, [svg_full_path, '.svg']);
+end
