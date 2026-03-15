@@ -104,14 +104,15 @@ l=legend('FontSize',8,'Location','southoutside','Orientation','horizontal');
 l.Layout.Tile='south';
 
 if blank
-% --- SAVE FIGURE ---
-fname = 'Paper Figures/8 Print Comparison/Figure8';
-
-% Save as PNG
-exportgraphics(fig8, fname+"a.png", 'Resolution', 300);
-exportgraphics(fig8b, fname+"b.png", 'Resolution', 300);
-
-% Save as EPS
-exportgraphics(fig8, fname+"a.eps", 'ContentType','vector'); % -depsc is for color EPS
-exportgraphics(fig8b, fname+"b.eps", 'ContentType','vector'); % -depsc is for color EPS
+    
+% % --- SAVE FIGURE ---
+% fname = 'Paper Figures/8 Print Comparison/Figure8';
+% 
+% % Save as PNG
+% exportgraphics(fig8, fname+"a.png", 'Resolution', 300);
+% exportgraphics(fig8b, fname+"b.png", 'Resolution', 300);
+% 
+% % Save as EPS
+% exportgraphics(fig8, fname+"a.eps", 'ContentType','vector'); % -depsc is for color EPS
+% exportgraphics(fig8b, fname+"b.eps", 'ContentType','vector'); % -depsc is for color EPS
 end
