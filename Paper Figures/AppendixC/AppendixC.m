@@ -28,6 +28,9 @@ if ~exist(baseDir, 'dir'), mkdir(baseDir); end
 if ~exist(pngDir, 'dir'),  mkdir(pngDir);  end
 if ~exist(svgDir, 'dir'),  mkdir(svgDir);  end
 
+baseNum = 10-1;
+AppendixLetter = 'C';
+
 % --- Figure Layout Constants (Inches) ---
 figWidth   = 7.5;   
 figHeight  = 2.0;   
@@ -118,8 +121,9 @@ for k = 1:numel(trial_filenames)
 
     % --- 4. SAVE PLOTS TO SEPARATE FOLDERS ---
     % Define specific paths for PNG and SVG
-    png_full_path = fullfile(pngDir, [current_trial, '.png']);
-    svg_full_path = fullfile(svgDir, current_trial); % print adds .svg automatically
+    current_trial_fname = "Figure"+AppendixLetter+string(baseNum+k)+"_"+string(regexp(current_trial,'(Surf.._M\d)','match'));
+    png_full_path = fullfile(pngDir, current_trial_fname+".png");
+    svg_full_path = fullfile(svgDir, current_trial_fname); % print adds .svg automatically
 
     % Save PNG
     exportgraphics(fig, png_full_path, 'Resolution', 300);

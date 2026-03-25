@@ -1,95 +1,133 @@
-%% Figure: Final Sampling Pattern with Top and Isometric Images
+%% Figure: Final Sampling Pattern with Separate PNG and SVG Folders
 close all; clear; clc;
 
 % --- List of all trial filenames ---
 trial_filenames = {
-    '20250515_225518_Surf1b_M1_real'
+    '20250515_225518_Surf1b_M1_real', ...
+    '20250515_192421_Surf1b_M2_LCB_exp_real', ...
+    '20250515_205608_Surf1a_Surf1b_M3_LCB_exp_real', ...
+    '20250517_001949_Surf2b_M1_real', ...
+    '20250516_174734_Surf2b_M2_LCB_exp_real', ...
+    '20250516_220758_Surf2a_Surf2b_M3_LCB_exp_real', ...
+    '20250923_213409_Surf3b_M1_real', ...
+    '20250923_172121_Surf3b_M2_LCB_exp_real', ...
+    '20250923_184535_Surf3a_Surf3b_M3_LCB_exp_real', ...
+    '20251122_013740_Surf1b_M2_LCB_exp_real', ... % Validation Trial
+    '20251121_171838_Surf2b_M2_LCB_exp_real', ... % Validation Trial
+    '20251121_231322_Surf3b_M2_LCB_exp_real', ... % Validation Trial
 };
-
-% Folder where your .png images are stored (leave empty '' if in current folder)
-image_folder = 'surface1'; 
 
 addpath(genpath(fullfile(pwd)));
 
-% --- Master Loop ---
+% --- Create Output Directories ---
+baseDir = 'Output_Figures';
+pngDir  = fullfile(baseDir, 'PNGs');
+svgDir  = fullfile(baseDir, 'SVGs');
+
+if ~exist(baseDir, 'dir'), mkdir(baseDir); end
+if ~exist(pngDir, 'dir'),  mkdir(pngDir);  end
+if ~exist(svgDir, 'dir'),  mkdir(svgDir);  end
+
+
+
+% --- Figure Layout Constants (Inches) ---
+figWidth   = 7.5;   
+figHeight  = 2.0;   
+plotH      = 1.4;   
+plotW_sq   = 1.4;   
+bottomPos  = 0.4;   
+leftMargin = 0.6;   
+gap        = 0.4;   
+
 for k = 1:numel(trial_filenames)
     current_trial = trial_filenames{k};
     
-    % Check for .mat file existence
     full_path = current_trial;
     if ~contains(full_path, '.mat'), full_path = [full_path, '.mat']; end
-    if ~exist(full_path, 'file'), fprintf('File not found: %s\n', full_path); continue; end
+    if ~exist(full_path, 'file'), continue; end
     
     load(full_path);
     fprintf('Processing: %s\n', current_trial);
 
-    % --- 1. Parse filename for image strings (s1m1, s1m2, etc) ---
-    % Extracts the digit after 'Surf' and 'M'
-    s_idx = regexp(current_trial, 'Surf(\d)', 'tokens', 'once');
-    m_idx = regexp(current_trial, 'M(\d)', 'tokens', 'once');
+    % --- 1. Path Logic based on Date Timestamp ---
+    s_tokens = regexp(current_trial, 'Surf(\d)', 'tokens', 'once');
+    m_tokens = regexp(current_trial, 'M(\d)', 'tokens', 'once');
+    s_num = s_tokens{1}; m_num = m_tokens{1};
     
-    img_prefix = lower(['s', s_idx{1}, 'm', m_idx{1}]); % e.g., 's1m1'
-    top_view_file = fullfile(image_folder, [img_prefix, 'top.png']);
-    iso_view_file = fullfile(image_folder, [img_prefix, 'iso.png']);
-
-    % --- 2. Determine testpoint counts ---
-    if method == 1 && contains(SurfB, "Surf1"),         testpoint_counts = [3, 4, 5, 6, 15];
-    elseif method == 1 && contains(SurfB, "Surf2"),     testpoint_counts = [3, 8, 9, 10, 15];
-    elseif method == 1 && contains(SurfB, "Surf3"),     testpoint_counts = [3, 11, 12, 13, 15]; 
-    elseif (method == 2 || method == 3) && contains(SurfB, "Surf1"), testpoint_counts = [10, 14, 15, 16, 225];
-    elseif (method == 2 || method == 3) && contains(SurfB, "Surf2"), testpoint_counts = [20, 40, 50, 60, 225];
-    elseif (method == 2 || method == 3) && contains(SurfB, "Surf3"), testpoint_counts = [40, 60, 70, 80, 225];
-    end
-    num_points = testpoint_counts(end);
-
-    % --- 3. Figure Configuration ---
-    % Width = 7 inches (Standard full page width), Height = 2.2 inches
-    fig = figure('Name', current_trial, 'Units', 'inches', 'Position', [0.5 0.5 7 2.2], 'Color', 'w');
-    t = tiledlayout(1, 3, 'TileSpacing', 'loose', 'Padding', 'tight');
+    target_folder = ['surface', s_num]; 
     
-    % --- TILE 1: Red Sampling Plot ---
-    ax1 = nexttile(t);
-    hold(ax1, 'on');
-    if method == 1
-        grid_dim = num_points;
-        [X_grid, Y_grid] = meshgrid(linspace(x_min, x_max, grid_dim), linspace(y_min, y_max, grid_dim));
-        plot(ax1, X_grid(:), Y_grid(:), 'r.', 'MarkerSize', 8);
+    % Determine prefix based on date (Nov 2025 vs others)
+    if startsWith(current_trial, '202511')
+        active_prefix = ['vs', s_num, 'm', m_num];
     else
-        current_testpoints = testpoints(1:num_points, :);
-        current_mask = mask(1:num_points);
-        plot(ax1, current_testpoints(current_mask,1), current_testpoints(current_mask,2), 'r.', 'MarkerSize', 8);
+        active_prefix = ['s', s_num, 'm', m_num];
     end
-    axis(ax1, 'square'); xlim(ax1, [-30 30]); ylim(ax1, [-30 30]);
-    set(ax1, 'XTick', -30:15:30, 'YTick', -30:15:30);
-    xlabel(ax1, 'x [mm]'); ylabel(ax1, 'y [mm]');
-    title(ax1, 'Sampling Pattern', 'FontSize', 10);
-    grid(ax1, 'on');
-
-    % --- TILE 2: Top View Image ---
-    ax2 = nexttile(t);
-    try
-        img_top = imread(top_view_file);
-        imshow(img_top, 'Parent', ax2);
-        title(ax2, 'Top View (Physical)', 'FontSize', 10);
-    catch
-        text(0.5, 0.5, ['Missing: ' top_view_file], 'HorizontalAlignment', 'center');
-        axis off;
-    end
-
-    % --- TILE 3: Isometric View Image ---
-    ax3 = nexttile(t);
-    try
-        img_iso = imread(iso_view_file);
-        imshow(img_iso, 'Parent', ax3);
-        title(ax3, 'Isometric View', 'FontSize', 10);
-    catch
-        text(0.5, 0.5, ['Missing: ' iso_view_file], 'HorizontalAlignment', 'center');
-        axis off;
-    end
-
-    % Standardize font for paper
-    fontsize(fig, 10, 'points');
     
-    % --- Save Section ---
-    % exportgraphics(fig, [current_trial, '_Combined.png'], 'Resolution', 300);
+    extensions = {'.png', '.JPG', '.jpg'};
+    top_view_file = ''; iso_view_file = '';
+    for e = 1:numel(extensions)
+        test_top = fullfile(target_folder, [active_prefix, 'top', extensions{e}]);
+        test_iso = fullfile(target_folder, [active_prefix, 'iso', extensions{e}]);
+        if exist(test_top, 'file'), top_view_file = test_top; end
+        if exist(test_iso, 'file'), iso_view_file = test_iso; end
+    end
+
+    % --- 2. Data ---
+    if exist('mask', 'var') && length(mask) == size(testpoints, 1)
+        plot_data = testpoints(mask, :);
+    else
+        plot_data = testpoints;
+    end
+
+    % --- 3. Create Figure ---
+    fig = figure('Name', current_trial, 'Units', 'inches', ...
+                 'Position', [1 1 figWidth figHeight], ...
+                 'Color', 'w', 'Renderer', 'painters', 'Visible', 'on');
+
+    % AXES 1: Sampling Pattern
+    ax1 = axes('Units', 'inches', 'Position', [leftMargin, bottomPos, plotW_sq, plotH]);
+    hold(ax1, 'on');
+    plot(ax1, plot_data(:,1), plot_data(:,2), 'r.', 'MarkerSize', 8);
+    axis(ax1, 'square'); xlim(ax1, [-30 30]); ylim(ax1, [-30 30]);
+    set(ax1, 'XTick', -30:15:30, 'YTick', -30:15:30, 'FontSize', 8);
+    xlabel('x [mm]'); ylabel('y [mm]');
+    grid on;
+
+    % AXES 2: Top View
+    xPos2 = leftMargin + plotW_sq + gap;
+    ax2 = axes('Units', 'inches', 'Position', [xPos2, bottomPos, plotW_sq, plotH]);
+    if ~isempty(top_view_file)
+        imshow(imread(top_view_file), 'Parent', ax2);
+    else
+        axis off;
+    end
+
+    % AXES 3: Isometric View
+    xPos3 = xPos2 + plotW_sq + gap;
+    if ~isempty(iso_view_file)
+        img_iso = imread(iso_view_file);
+        [hI, wI, ~] = size(img_iso);
+        plotW_iso = plotH * (wI / hI); 
+        ax3 = axes('Units', 'inches', 'Position', [xPos3, bottomPos, plotW_iso, plotH]);
+        imshow(img_iso, 'Parent', ax3);
+    else
+        ax3 = axes('Units', 'inches', 'Position', [xPos3, bottomPos, plotW_sq, plotH]);
+        axis off;
+    end
+
+    fontsize(fig, 10, 'points');
+    drawnow; 
+
+    % --- 4. SAVE PLOTS TO SEPARATE FOLDERS ---
+    % Define specific paths for PNG and SVG
+    png_full_path = fullfile(pngDir, [current_trial, '.png']);
+    svg_full_path = fullfile(svgDir, current_trial); % print adds .svg automatically
+
+    % Save PNG
+    exportgraphics(fig, png_full_path, 'Resolution', 300);
+    
+    % Save SVG (True Vector)
+    print(fig, svg_full_path, '-dsvg', '-painters'); 
+
+    fprintf('Saved: PNG -> %s | SVG -> %s\n', png_full_path, [svg_full_path, '.svg']);
 end

@@ -161,8 +161,7 @@ for i = 1:numTrials
     
     % --- Axis Formatting ---
     xlim([0, max_TCS_points + 5]);
-    ylim([1e-3,1e0])
-    yscale('log')
+    ylim([0,1e0])
 
     % Y-Axis Label
     if i==1
@@ -170,12 +169,13 @@ for i = 1:numTrials
     else
     yticklabels([])
     end
+    yticks(0:0.2:1)
 
     % Legend
     if i==1
-    l = legend({'Physical CV MAE','MAE n*', 'Verification CV MAE'}, ...
+    l = legend({'$\mathcal L_{MAE,CV}$, Full Trial','$MAE_{n^*}$', '$\mathcal L_{MAE,CV}$, Reduced Trial'}, ...
         'Location', 'southoutside', 'FontSize', legendFontSize,...
-        'Interpreter', 'tex','Orientation','horizontal','Color','red');
+        'Interpreter', 'latex','Orientation','horizontal');
     l.Layout.Tile = 'south';
     end
 
@@ -199,8 +199,8 @@ for i = 1:numTrials
     
     % Draw Manual Text Labels for Ticks
     y_limits = ylim;
-    y_range = log10(y_limits(2)) - log10(y_limits(1));
-    y_tick_pos = 10^(log10(y_limits(1)) - (y_range * 0.02)); 
+    y_range = y_limits(2)-y_limits(1);
+    y_tick_pos = y_limits(1) - (y_range * 0.02); 
     
     for k = 1:length(final_xticks)
         idx = final_xticks(k);
@@ -219,7 +219,7 @@ for i = 1:numTrials
     
     % --- X-Axis Main Labels (Double Stacked) ---
     x_center = mean(xlim);
-    y_label_pos = 10^(log10(y_limits(1)) - (y_range * 0.3)); 
+    y_label_pos = y_limits(1) - (y_range * 0.33); 
     
     % Only the word "min" is italicized
     text(x_center, y_label_pos, {'Number of Points, \itn'; 'Time Elapsed (min)'}, ...
