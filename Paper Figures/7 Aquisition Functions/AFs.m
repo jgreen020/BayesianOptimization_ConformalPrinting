@@ -51,21 +51,21 @@ for i = 1:size(dirnames,1)
 
         AcquisitionFunction = func2str(A);
         % Plot Calculation
-        if isequal(AcquisitionFunction,'LD') && contains(nameB,'Surf1')
+        if isequal(AcquisitionFunction,'LD') && contains(nameB,'Surf1') && (method~=3)
             LD_Surf1 = cat(2, LD_Surf1, MAE_test);
         elseif isequal(AcquisitionFunction,'LD') && contains(nameB,'Surf2')
             LD_Surf2 = cat(2, LD_Surf2, MAE_test);
         elseif isequal(AcquisitionFunction,'LD') && contains(nameB,'Surf3')
             LD_Surf3 = cat(2, LD_Surf3, MAE_test);
 
-        elseif isequal(AcquisitionFunction,'LCB_exp') && contains(nameB,'Surf1')
+        elseif isequal(AcquisitionFunction,'LCB_exp') && contains(nameB,'Surf1') && (method~=3)
             LCB_Surf1 = cat(2, LCB_Surf1, MAE_test);
         elseif isequal(AcquisitionFunction,'LCB_exp') && contains(nameB,'Surf2')
             LCB_Surf2 = cat(2, LCB_Surf2, MAE_test);
         elseif isequal(AcquisitionFunction,'LCB_exp') && contains(nameB,'Surf3')
             LCB_Surf3 = cat(2, LCB_Surf3, MAE_test);
 
-        elseif isequal(AcquisitionFunction,'IVR2') && contains(nameB,'Surf1')
+        elseif isequal(AcquisitionFunction,'IVR2') && contains(nameB,'Surf1') && (method~=3)
             IVR2_Surf1 = cat(2, IVR2_Surf1, MAE_test);
         elseif isequal(AcquisitionFunction,'IVR2') && contains(nameB,'Surf2')
             IVR2_Surf2 = cat(2, IVR2_Surf2, MAE_test);
@@ -157,8 +157,8 @@ set(gca,'YScale','log')
 grid on
 title('Surface 3')
 
-ylabel(t,'MAE (mm)');
-xlabel(t,'Number of Points, n')
+ylabel(t,'Mean Absolute Error, $\mathcal L_{MAE}$ (mm)','Interpreter','latex');
+xlabel(t,'Number of Points, $n$','Interpreter','latex')
 
 fontsize(gcf, 12, "points")
 
