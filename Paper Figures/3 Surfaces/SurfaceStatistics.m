@@ -1,3 +1,7 @@
+% NOTE: Running this code requires the function 'surfature', download it here:
+% https://www.mathworks.com/matlabcentral/fileexchange/11168-surface-curvature
+% and place it anywhere in the working directory
+
 clear; clc; close all;
 syms x y
 surfs = {Surface1a(x,y), Surface1b(x,y), Surface1c(x,y); ...
