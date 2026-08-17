@@ -76,10 +76,10 @@ set(ax, 'YTick', -30:15:30);
 % end
 
 if j==1
-    title("Method "+string(k));
+    title("\textbf{M"+string(k)+"}",'Interpreter','latex');
 end
 if k==1
-    ylabel("Surface "+sNames{j,k},"FontWeight","bold")
+    ylabel("\textbf{Surface "+sNames{j,k}+"}",'Interpreter','latex')
 end
 
 figure(fig8b)
@@ -93,9 +93,9 @@ plot(NaN,NaN,'LineStyle','none','Color',p.Color,'DisplayName',tNames{j,k},'Marke
 yscale('log')
 ylim([1e-2,1e0])
 yticks([1e-2,1e0])
-ylabel('MAE_{CV} (mm)')
+ylabel('$\mathcal L_{MAE,CV}$ (mm)','Interpreter','latex')
 xscale('log')
-xlabel('Number of Sampled Points, n')
+xlabel('Number of Samples, $n$','Interpreter','latex')
 end
 end
 fontsize(fig8,12,'points')
@@ -105,14 +105,14 @@ l.Layout.Tile='south';
 
 if blank
     
-% % --- SAVE FIGURE ---
-% fname = 'Paper Figures/8 Print Comparison/Figure8';
-% 
-% % Save as PNG
-% exportgraphics(fig8, fname+"a.png", 'Resolution', 300);
-% exportgraphics(fig8b, fname+"b.png", 'Resolution', 300);
-% 
-% % Save as EPS
-% exportgraphics(fig8, fname+"a.eps", 'ContentType','vector'); % -depsc is for color EPS
-% exportgraphics(fig8b, fname+"b.eps", 'ContentType','vector'); % -depsc is for color EPS
+% --- SAVE FIGURE ---
+fname = 'Paper Figures/8 Print Comparison/Figure8';
+
+% Save as PNG
+exportgraphics(fig8, fname+"a.png", 'Resolution', 300);
+exportgraphics(fig8b, fname+"b.png", 'Resolution', 300);
+
+% Save as EPS
+exportgraphics(fig8, fname+"a.eps", 'ContentType','vector'); % -depsc is for color EPS
+exportgraphics(fig8b, fname+"b.eps", 'ContentType','vector'); % -depsc is for color EPS
 end

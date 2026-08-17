@@ -20,7 +20,7 @@ trial_filenames = {
 addpath(genpath(fullfile(pwd)));
 
 % --- Create Output Directories ---
-baseDir = 'Output_Figures';
+baseDir = 'Paper Figures/AppendixC/Output_Figures';
 pngDir  = fullfile(baseDir, 'PNGs');
 svgDir  = fullfile(baseDir, 'SVGs');
 
