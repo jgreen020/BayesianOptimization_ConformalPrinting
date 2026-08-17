@@ -1,7 +1,7 @@
 # Code for: Surface Reconstruction using Bayesian Sampling with Trilinear Coordinates Scanning for Minimally-Invasive Bioprinting
 Code used to perform surface reconstruction using CT scan data and Trilinear Coordinates Scanning. Full paper available [here](doi.org)
 
-![Method Flow Diagram](Paper Figures/2 Methods/Figure2.png)
+![Method Flow Diagram](<Paper Figures/2 Methods/Figure2.png>)
 
 ## Requirements
 - MATLAB 2024b (not tested in other versions)
