@@ -26,11 +26,11 @@ stoppingcriteria=false; % Stop BO loop when stopping critria has been met
 cmax=0.165; % Maximum Deviation (mm), sets the maximum for colormaps
 criticalNumber2=0.115; % Critical number of stopping critiria
 
-trialName = '20261102_SimStudy4Repeat4';
-
 % Local Settings (can be set by an external script if the variable 'bulk' exists)
 if ~exist('bulk','var')
-        
+    
+    trialName = '20250423_SimStudy4';
+
     % Surfaces and Curves
     SurfA='Surf1a.csv'; % Name of the file containing the CT scan data for Surface A
     SurfB='Surf1b.csv'; % Name of the file containing the CT scan data for Surface B
@@ -57,10 +57,24 @@ if ~exist('bulk','var')
     end
 
     noise_magnitude = 0;
-    bias_magnitude = 0;
+    bias_magnitude = 1;
 end
 
 % Break out the x and y mins and maxes for readability
 x_min = min(x_lim); x_max = max(x_lim); x_rng=x_max-x_min;
 y_min = min(y_lim); y_max = max(y_lim); y_rng=y_max-y_min;
 z_min = -10; z_max=20; z_rng=z_min-z_max;
+
+% Generate a bias vector
+if ~exist('bulk','var')
+if bias_magnitude>0
+    bias_angles = random('Uniform',0,2*pi,[2,1]);
+    theta = bias_angles(1); phi = bias_angles(2);
+    bias_vector = random('Normal',0,bias_magnitude) * ...
+        [sin(theta)*cos(phi),...
+        sin(theta)*sin(phi),...
+        cos(theta)];
+else
+    bias_vector = zeros(1,3);
+end
+end

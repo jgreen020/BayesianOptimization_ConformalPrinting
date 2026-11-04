@@ -70,10 +70,7 @@ else
     if ~exist('bulk','var')
     [dataB, ~, nameB]=importCTdata(SurfB,y_lim,x_lim,pad,res_s);
     end
-    [initindex, dist]=dsearchn(table2array(dataB(:,{'x','y'})),[xt yt]);
-    xt=table2array(dataB(initindex,'x'));
-    yt=table2array(dataB(initindex,'y'));
-    ztB=table2array(dataB(initindex,'z'));
+    [xt,yt,xtB] = simtcs(dataB,[xt yt],noise_magnitude,bias_vector);
 
     % Record the time it took to find the initial points
     % Since all points were found simultaneously, write all values to the same number
@@ -106,4 +103,4 @@ end
 
 save(strcat(savePath,'/',word,'_t',num2str(type),...
     '_',nameB,'_n',num2str(n),'.mat'),"testpoints","t","sampletime",...
-    "x_lim_in","y_lim_in","pad_in","res_in","initindex") 
+    "x_lim_in","y_lim_in","pad_in","res_in","initindex","bias_vector") 

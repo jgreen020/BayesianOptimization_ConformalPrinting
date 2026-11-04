@@ -10,42 +10,38 @@ clc; clear; close all;
 naloc = 244;
 % Load data
 addpath(genpath(fullfile(pwd)))
-basepath = "Data/Results/20250423_SimStudy4/";
+basepath = "Data/Results/20261102_SimStudy4/";
 dirnames = dir(basepath+"*sim*");
 
-figure(10);
-set(gcf, 'Name', 'Method Comparison','WindowStyle', 'normal','Unit','inches','Position',[0 0 3 1.9688],'Color','white');
-hold on
-fontsize(6,"points")
-yticklocs = [0 1 2 4 5 6 8 9 10 11] ;
-yticks(yticklocs)
-yticklabels(["1A","1B","1C","2A","2B","2C","3A","3B","3C",''])
-xticklocs = [0 9 16 25 36 49 64 81 100 121 144 169 196 225];
-xticks(xticklocs)
-%set(gca,'YGrid','on')
-grid on
-axis([0 225 -1 11])
-set(gca,'Clipping','off')
-%title('Method Performance Comparison')
-xlabel('Number of Points, n*')
-ylabel('Surface')
 
-axpos=get(gca,'Position') ;
-ticklen = get(gca,'TickLength') ;
-% linex = axpos(1)+axpos(3)+.05 ;
-linex = axpos(1)+naloc/225*axpos(3) ;
-lineytop = axpos(2)+axpos(3)-.02;
-hLineWidth = 0.01 ;
-annotation('line',[linex linex],[axpos(2) lineytop],'Color',[223 223 223]/255)
-annotation('line',[linex linex],[axpos(2) axpos(2)+ticklen(1)])
-annotation('line',[linex-hLineWidth linex+hLineWidth],[axpos(2) axpos(2)])
-annotation('textbox',[linex-.05 0 .1 axpos(2)],'String','N/A','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','top','Margin',7,'FontSize',6)
+% yticklocs = [0 1 2 4 5 6 8 9 10 11] ;
+% yticks(yticklocs)
+% yticklabels(["1A","1B","1C","2A","2B","2C","3A","3B","3C",''])
+% axis([0 225 -1 11])
 
-ylimloc = get(gca,'YLim');
-naTickLocs = (yticklocs-ylimloc(1))/(ylimloc(2)-ylimloc(1))*(lineytop-axpos(2))+axpos(2) ; 
-for i=1:length(naTickLocs)
-    annotation('line',[linex-hLineWidth linex+hLineWidth],[naTickLocs(i) naTickLocs(i)],'Color',[223 223 223]/255)
-end
+% axpos=get(gca,'Position') ;
+% ticklen = get(gca,'TickLength') ;
+% % linex = axpos(1)+axpos(3)+.05 ;
+% linex = axpos(1)+naloc/225*axpos(3) ;
+% lineytop = axpos(2)+axpos(3)-.02;
+% hLineWidth = 0.01 ;
+% annotation('line',[linex linex],[axpos(2) lineytop],'Color',[223 223 223]/255)
+% annotation('line',[linex linex],[axpos(2) axpos(2)+ticklen(1)])
+% annotation('line',[linex-hLineWidth linex+hLineWidth],[axpos(2) axpos(2)])
+% annotation('textbox',[linex-.05 0 .1 axpos(2)],'String','N/A','LineStyle','none','HorizontalAlignment','center','VerticalAlignment','top','Margin',7,'FontSize',6)
+% 
+% ylimloc = get(gca,'YLim');
+% naTickLocs = (yticklocs-ylimloc(1))/(ylimloc(2)-ylimloc(1))*(lineytop-axpos(2))+axpos(2) ; 
+% for i=1:length(naTickLocs)
+%     annotation('line',[linex-hLineWidth linex+hLineWidth],[naTickLocs(i) naTickLocs(i)],'Color',[223 223 223]/255)
+% end
+
+% Load all the data and compute the stopping point
+printNumberIGs = cell(length(dirnames),1);
+ns = cell(length(dirnames),1);
+surf_nums = cell(length(dirnames),1);
+surf_letters = cell(length(dirnames),1);
+methods = cell(length(dirnames),1);
 
 for i = 1:size(dirnames,1)
     % Load data
@@ -55,36 +51,126 @@ for i = 1:size(dirnames,1)
 
     % Error Metrics
     ns{i}=modelPerformance.n;
-    [IdealGuarantee{i}, printNumberIGs{i}] = MiniCriteria(modelPerformance,0.055);
-    if isnan(printNumberIGs{i})
-        printNumberIGs{i}=naloc;
-    end
-    printNumberIG=printNumberIGs{i};
+    [~, printNumberIGs{i}] = MiniCriteria(modelPerformance,0.055);
     
-    figure(10)
-    row_maj = str2double(SurfB(5));
-    if SurfB(6)=='a'
-        row_min=0;
-    elseif SurfB(6)=='b'
-        row_min=1;
-    elseif SurfB(6)=='c'
-        row_min=2;
-    end
-    row = 4*(row_maj-1)+row_min;
-    scale = .15;
-    if method == 1 
-    scatter(printNumberIG,row,150*scale,[0.8500 0.3250 0.0980],'filled','o','MarkerFaceAlpha',0.2)
-    scatter(printNumberIG,row,150*scale,[0.8500 0.3250 0.0980],'o','LineWidth',1)
-    elseif method == 2
-    scatter(printNumberIG,row,200*scale,[0.9290 0.6940 0.1250],'filled','^','LineWidth',2,'MarkerFaceAlpha',0.2,'MarkerEdgeAlpha',1)
-    scatter(printNumberIG,row,150*scale,[0.9290 0.6940 0.1250],'^','LineWidth',1)
-    elseif method == 3
-    scatter(printNumberIG,row,150*scale,[0.4940 0.1840 0.5560],'filled','square','MarkerFaceAlpha',0.2,'MarkerEdgeAlpha',1)
-    scatter(printNumberIG,row,150*scale,[0.4940 0.1840 0.5560],'square','LineWidth',1)
-    end
+    surf_nums{i} = SurfB(5);
+    surf_letters{i} = SurfB(6);
+    methods{i} = strcat('M',string(method));
+    fprintf("completed: %i/%i\n",i,size(dirnames,1))
 end
-legend('','M1','','','','','','','','','','','','','','','','','','M2','','','','M3','Location','southeast')
 
+surf_nums = categorical(string(surf_nums));
+surf_letters = categorical(upper(surf_letters));
+methods = categorical(string(methods));
+printNumberIGs = cell2mat(printNumberIGs);
+
+%%
+close all
+figure(10);
+set(gcf, 'Name', 'Method Comparison','WindowStyle', 'normal','Unit','inches','Position',[0 0 3.3 4.5],'Color','white');
+hold on
+grid on
+xticklocs = [0 (4:16).^2];
+xticks(xticklocs)
+xticklabels([string(xticklocs(1:end-1)) "N/A"])
+
+set(gca,'Clipping','off')
+%title('Method Performance Comparison')
+xlabel('Number of Points, n*')
+ylabel('Surface, Method')
+
+all_methods = unique(methods);
+surfs = string(surf_nums)+string(surf_letters);
+all_surfs = unique(surfs);
+
+[all_surfs,all_methods] = meshgrid(all_surfs,all_methods);
+all_surfs = all_surfs(:); all_methods = all_methods(:);
+
+labels = cell(length(all_methods),1);
+failure_rates = zeros(size(labels));
+for i=1:length(all_surfs)
+    labels{i} = strcat(all_surfs(i),", ",string(all_methods(i)));
+    idxs = (surfs==all_surfs(i)) & (methods==all_methods(i));
+    nums = printNumberIGs(idxs);
+    failure_rates(i) = round(sum(isnan(nums))/length(nums)*100,0);
+end
+
+groupingVariables = {surf_nums,surf_letters,methods};
+
+boxplot(printNumberIGs,groupingVariables,...
+    'Orientation','horizontal',...
+    'ColorGroup', methods,...
+    'Colors',[0.8500 0.3250 0.0980;0.9290 0.6940 0.1250;0.4940 0.1840 0.5560],...
+    'PlotStyle','compact',...
+    'FactorSeparator',[],...
+    'FactorGap',[17,7,0],...
+    'LabelVerbosity','all',...
+    'Labels',string(labels)'...
+    )
+
+idx_nan = isnan(printNumberIGs);
+printNumbers2 = printNumberIGs;
+printNumbers2(~idx_nan) = nan;
+printNumbers2(idx_nan) = 256;
+
+boxplot(printNumbers2,groupingVariables,...
+    'Orientation','horizontal',...
+    'ColorGroup', methods,...
+    'Colors',[0.8500 0.3250 0.0980;0.9290 0.6940 0.1250;0.4940 0.1840 0.5560],...
+    'PlotStyle','compact',...
+    'FactorSeparator',[],...
+    'FactorGap',[17,7,0],...
+    'LabelVerbosity','all',...
+    'Labels',string(labels)'...
+    )
+
+fontsize(6,"points")
+xlim([0,225])
+% Aggregate the data
+% unique_surfs = unique(surfs);
+% unique_methods = unique(methods);
+% m = length(unique_methods);
+% n = length(unique_surfs);
+% means = zeros(m,n);
+% stds = zeros(m,n);
+% 
+% for i=1:length(unique_methods)
+%     for j=1:length(unique_surfs)
+%         print
+
+% Plot the data
+
+    
+%     printNumberIG=printNumberIGs{i};
+% 
+%     if isnan(printNumberIG)
+%         printNumberIG=naloc;
+%     end
+% 
+%     figure(10)
+%     row_maj = str2double(SurfB(5));
+%     if SurfB(6)=='a'
+%         row_min=0;
+%     elseif SurfB(6)=='b'
+%         row_min=1;
+%     elseif SurfB(6)=='c'
+%         row_min=2;
+%     end
+%     row = 4*(row_maj-1)+row_min;
+%     scale = .15;
+%     if method == 1
+%     scatter(printNumberIG,row,150*scale,[0.8500 0.3250 0.0980],'filled','o','MarkerFaceAlpha',0.2)
+%     scatter(printNumberIG,row,150*scale,[0.8500 0.3250 0.0980],'o','LineWidth',1)
+%     elseif method == 2
+%     scatter(printNumberIG,row,200*scale,[0.9290 0.6940 0.1250],'filled','^','LineWidth',2,'MarkerFaceAlpha',0.2,'MarkerEdgeAlpha',1)
+%     scatter(printNumberIG,row,150*scale,[0.9290 0.6940 0.1250],'^','LineWidth',1)
+%     elseif method == 3
+%     scatter(printNumberIG,row,150*scale,[0.4940 0.1840 0.5560],'filled','square','MarkerFaceAlpha',0.2,'MarkerEdgeAlpha',1)
+%     scatter(printNumberIG,row,150*scale,[0.4940 0.1840 0.5560],'square','LineWidth',1)
+%     end
+% end
+% legend('','M1','','','','','','','','','','','','','','','','','','M2','','','','M3','Location','southeast')
+% 
 saveas(figure(10),'Paper Figures/5 Sim Summary/Figure5.fig')
-exportgraphics(figure(10),'Paper Figures/5 Sim Summary/Figure5.png')
+exportgraphics(figure(10),'Paper Figures/5 Sim Summary/Figure5.png','Resolution',600)
 exportgraphics(figure(10),'Paper Figures/5 Sim Summary/Figure5.eps','ContentType','vector')

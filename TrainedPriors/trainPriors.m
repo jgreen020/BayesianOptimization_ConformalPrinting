@@ -38,13 +38,21 @@ res_a=20000; % Number of points to train the final GPR on
 % (Parallel Computing requires the Parallel Computing Toolbox, otherwise 
 % parfor will act like for)
 
-savePath = strcat(fullfile(pwd,'/TrainedPriors'),'/',priordate);
-if ~exist(savePath,'dir')
-    mkdir(savePath)
-    addpath(savePath)
-end
+is = 1:length(surfnames);
+js = 0:4;
+[is, js] = meshgrid(is,js);
+is = is(:); js = js(:);
 
-for i=1:length(surfnames)
+parfor k = 1:length(is)
+    i = is(k)
+    j = js(k)
+
+    savePath = strcat(fullfile(pwd,'/TrainedPriors'),'/',priordate,'_100_',string(j));
+    if ~exist(savePath,'dir')
+        mkdir(savePath)
+        addpath(savePath)
+    end
+
     % Select the surface
     Surf = cell2mat(surfnames(i));
     % Import the data for that surface
@@ -91,4 +99,5 @@ for i=1:length(surfnames)
     s=struct("gprMdlA",gprMdlA,"priorFitTime",priorFitTime,"priortime",priortime,...
         "x_lim_pri",x_lim_pri,"y_lim_pri",y_lim_pri,"pad_pri",pad_pri);
     save(strcat(savePath,'/',nameA,'.mat'),'-fromstruct',s)
+
 end
