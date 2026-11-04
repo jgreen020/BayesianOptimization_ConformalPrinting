@@ -12,6 +12,7 @@ surfnames={'Surf1a.csv','Surf1b.csv','Surf1c.csv',...
 bulk=1;
 
 Inputs
+seed = 5;
 
 % Loop through all surfaces
 for i=1:length(surfnames)

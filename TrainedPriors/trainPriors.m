@@ -9,14 +9,16 @@
 tic
 
 % List the surfaces to be used
-surfnames={'Surf1a.csv','Surf1b.csv','Surf1c.csv',...
-    'Surf2a.csv','Surf2b.csv','Surf2c.csv',...
-    'Surf3a.csv','Surf3b.csv','Surf3c_holes.csv'};
+surfnames={'Surf1a.csv'...,'Surf1b.csv','Surf1c.csv',...
+    'Surf2a.csv'...,'Surf2b.csv','Surf2c.csv',...
+    'Surf3a.csv'...,'Surf3b.csv','Surf3c_holes.csv'
+    };
 
 % Add all folders subfolders to the path
 addpath(genpath(fullfile(pwd)))
 
 % Record the current date and time
+priordate=string(datetime('now','Format','yyyyMMdd'));
 priortime=string(datetime('now','Format','yyyyMMdd_HHmmss'));
 
 % Create the bulk variable to avoid overwriting other important variables
@@ -36,11 +38,17 @@ res_a=20000; % Number of points to train the final GPR on
 % (Parallel Computing requires the Parallel Computing Toolbox, otherwise 
 % parfor will act like for)
 
-parfor i=1:length(surfnames)
+savePath = strcat(fullfile(pwd,'/TrainedPriors'),'/',priordate);
+if ~exist(savePath,'dir')
+    mkdir(savePath)
+    addpath(savePath)
+end
+
+for i=1:length(surfnames)
     % Select the surface
     Surf = cell2mat(surfnames(i));
     % Import the data for that surface
-    [dataA, fA, nameA] = importCTdata(Surf,y_lim,x_lim,pad);
+    [dataA, fA, nameA] = importCTdata(Surf,y_lim,x_lim,pad,res_a);
     
     % Train a GPR on a relatively small amount of data, using the 
     % 'OptimizeHyperparameters' argument to select optimal hyperparameters
@@ -65,8 +73,8 @@ parfor i=1:length(surfnames)
     gprMdlA = fitrgp(trainA,'z', ...
                 'Basis',gprMdl1.BasisFunction,...
                 'Beta',gprMdl1.Beta,...
-                'Sigma',gprMdl1.Sigma,...
-                'SigmaLowerBound',gprMdl1.Sigma-0.001,...
+                'Sigma',max(gprMdl1.Sigma,0.001+1e-10),...
+                'SigmaLowerBound',max(gprMdl1.Sigma-0.001,1e-10),...
                 'KernelFunction',gprMdl1.KernelFunction,...
                 'KernelParameters',gprMdl1.KernelInformation.KernelParameters);
     
@@ -82,5 +90,5 @@ parfor i=1:length(surfnames)
     % Save the results to a .m file to be called later by main.m
     s=struct("gprMdlA",gprMdlA,"priorFitTime",priorFitTime,"priortime",priortime,...
         "x_lim_pri",x_lim_pri,"y_lim_pri",y_lim_pri,"pad_pri",pad_pri);
-    save(strcat(fullfile(pwd,'/TrainedPriors'),'/',nameA,'.mat'),'-fromstruct',s)
+    save(strcat(savePath,'/',nameA,'.mat'),'-fromstruct',s)
 end

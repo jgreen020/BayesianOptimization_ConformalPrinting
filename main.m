@@ -51,7 +51,9 @@ if ~exist('bulk','var')
     addpath(genpath(fullfile(pwd)))
 else
     clearvars -except bulk f fA fB dataA dataB nameA nameB m n t2ns ...
-        Curve doaprint savedata surfnames SurfA SurfB AFs A method safeloopvar
+        Curve doaprint savedata surfnames SurfA SurfB AFs A method ...
+        priorFolder samplingFolder safeloopvar safeloopvar2 safeloopvar3 ...
+        noise_magnitude bias_magnitude
 end
 
 % Start a timer
@@ -79,11 +81,11 @@ elseif method==3
     [~, nameA,~]=fileparts(SurfA);
     fname0=strcat(starttime,'_',nameA,'_',nameB,'_','M',num2str(method),'_',func2str(A),'_',type);
 end
-fname=strcat(fullfile(pwd,'/Data'),'/Results/',fname0,'/',fname0); % Filename to write to
+fname=strcat(fullfile(pwd,'/Data'),'/Results/',trialName,'/',fname0,'/',fname0); % Filename to write to
 
 % If saving data, make a new folder with the filename and add it to the path
 if savedata
-    mkdir('./Data/Results', fname0)
+    mkdir(strcat('./Data/Results/', trialName,'/',fname0))
     % Enable logging of the command window to save as a .txt file
     diary(strcat(fname,'.txt'))
 end
@@ -136,7 +138,7 @@ t=zeros(m,1); % These values will get overwritten when the data is loaded
 testpoints=zeros(m,1); % ... But Matlab throws warnings if these aren't pre-allocated
 
 % Load the initial sampling
-load(strcat(fullfile(pwd,'/Initial Samplings'),'/',word,'_t',num2str(type),...
+load(strcat(fullfile(pwd,'/Initial Samplings/'),samplingFolder,'/',word,'_t',num2str(type),...
     '_',nameB,'_n',num2str(n),'.mat'))
 
 % Check that all the intial sampling settings match the current settings
@@ -191,7 +193,7 @@ elseif method==3
     plotabsError=zBp;
 
     % Load a previously trained GPR to serve as a prior and validate settings
-    load(strcat(fullfile(pwd,'/TrainedPriors'),'/',nameA,'.mat'))
+    load(strcat(fullfile(pwd,'/TrainedPriors/'),priorFolder,'/',nameA,'.mat'))
     if ~(all(x_lim == x_lim_pri) && all(y_lim == y_lim_pri) && (pad == pad_pri))
         disp(['ERROR: Inputs do not match saved prior. Either create a new' ...
             ' prior with these inputs or change your inputs to match the initial sampling.'])
@@ -225,8 +227,8 @@ if method==1
         fprintf([char(datetime('now','Format','(HH:mm:ss)')),'\t  ... Calculating Bézier Surface for iter=%i\n'],iter)
         
         % Jafari and Gans simulation for iter=n:1:m
-        initialsampling{iter} = load(strcat(fullfile(pwd,'/Initial Samplings')...
-            ,'/',word,'_t',num2str(type),'_',nameB,'_n',num2str(iter),'.mat'));
+        initialsampling{iter} = load(strcat(fullfile(pwd,'/Initial Samplings/')...
+            ,samplingFolder,'/',word,'_t',num2str(type),'_',nameB,'_n',num2str(iter),'.mat'));
         if ~(all(x_lim == initialsampling{iter}.x_lim_in) && all(y_lim == initialsampling{iter}.y_lim_in) && (pad == initialsampling{iter}.pad_in) && (res_s == initialsampling{iter}.res_in))
             disp(['ERROR: Inputs do not match saved sampling. Either create a new' ...
                 ' sampling with these inputs or change your inputs to match the initial sampling.'])
@@ -378,6 +380,7 @@ elseif method==2 || method==3
         if method == 2 && isempty(gprMdl_prior)
             gprMdlB = fitrgp(train,'z');
         else
+            try
             gprMdlB = fitrgp(train,'z', ...
                 'Basis',gprMdl_prior.BasisFunction,...
                 'Beta',gprMdl_prior.Beta,...
@@ -385,6 +388,13 @@ elseif method==2 || method==3
                 'SigmaLowerBound',max(min(gprMdl_prior.Sigma-0.001,1e-3),1e-7),...
                 'KernelFunction',gprMdl_prior.KernelFunction,...
                 'KernelParameters',gprMdl_prior.KernelInformation.KernelParameters);
+            catch
+            gprMdlB = fitrgp(train,'z', ...
+                'Basis',gprMdl_prior.BasisFunction,...
+                'Beta',gprMdl_prior.Beta,...
+                'KernelFunction',gprMdl_prior.KernelFunction,...
+                'KernelParameters',gprMdl_prior.KernelInformation.KernelParameters);
+            end
         end
         gprMdls{iter}=gprMdlB;
     
@@ -400,6 +410,7 @@ elseif method==2 || method==3
             if method == 2 && isempty(gprMdl_prior)
                 gprMdlB = fitrgp(train,'z');
             else
+                try
                 gprMdlB = fitrgp(train,'z', ...
                     'Basis',gprMdl_prior.BasisFunction,...
                     'Beta',gprMdl_prior.Beta,...
@@ -407,6 +418,13 @@ elseif method==2 || method==3
                     'SigmaLowerBound',max(min(gprMdl_prior.Sigma-0.001,1e-3),1e-7),...
                     'KernelFunction',gprMdl_prior.KernelFunction,...
                     'KernelParameters',gprMdl_prior.KernelInformation.KernelParameters);
+                catch
+                gprMdlB = fitrgp(train,'z', ...
+                    'Basis',gprMdl_prior.BasisFunction,...
+                    'Beta',gprMdl_prior.Beta,...
+                    'KernelFunction',gprMdl_prior.KernelFunction,...
+                    'KernelParameters',gprMdl_prior.KernelInformation.KernelParameters);
+                end
             end
 
             gprMdls{iter}=gprMdlB;
@@ -434,6 +452,7 @@ elseif method==2 || method==3
             if method == 2 && isempty(gprMdl_prior)
                 gprMdlB_cv = fitrgp(train_cv,'z');
             else
+                try
                 gprMdlB_cv = fitrgp(train_cv,'z', ...
                     'Basis',gprMdl_prior.BasisFunction,...
                     'Beta',gprMdl_prior.Beta,...
@@ -441,6 +460,14 @@ elseif method==2 || method==3
                     'SigmaLowerBound',max(min(gprMdl_prior.Sigma-0.001,1e-3),1e-7),...
                     'KernelFunction',gprMdl_prior.KernelFunction,...
                     'KernelParameters',gprMdl_prior.KernelInformation.KernelParameters);
+
+                catch
+                gprMdlB_cv = fitrgp(train_cv,'z', ...
+                    'Basis',gprMdl_prior.BasisFunction,...
+                    'Beta',gprMdl_prior.Beta,...
+                    'KernelFunction',gprMdl_prior.KernelFunction,...
+                    'KernelParameters',gprMdl_prior.KernelInformation.KernelParameters);
+                end
             end
             zBcv(i)=predict(gprMdlB_cv,train(i,{'x','y'}));
             cvError(i)=table2array(train(i,'z'))-zBcv(i);
@@ -489,8 +516,29 @@ elseif method==2 || method==3
                 t(iter)=toc(timer);
             else
                 newpt_id=dsearchn(table2array(dataB(:,{'x','y'})),newpt);
+                if length(newpt_id)>1; newpt_id=newpt_id(1); end
                 testpoints(iter+1,:)=table2array(dataB(newpt_id,:));
                 initindex = [initindex; newpt_id];
+            end
+
+            % if point has already been observed, try again using LD
+            [~, dist] = dsearchn(testpoints(1:iter,1:2),testpoints(iter+1,1:2));
+            if dist<1e-3
+                % Find a new point to test
+                newpt=table2array(LD(prediction,testpoints(:,1:2),gprMdls{iter}));
+                
+                % Observe it and add it to the training data
+                testpoints(iter+1,1:2)=newpt(1:2);
+                if doaprint
+                    % TCS ON MRD
+                    testpoints(iter+1,3)=mrdtcs(newpt(1), newpt(2));
+                    t(iter)=toc(timer);
+                else
+                    newpt_id=dsearchn(table2array(dataB(:,{'x','y'})),newpt);
+                    if length(newpt_id)>1; newpt_id=newpt_id(1); end
+                    testpoints(iter+1,:)=table2array(dataB(newpt_id,:));
+                    initindex = [initindex; newpt_id];
+                end
             end
         end
 

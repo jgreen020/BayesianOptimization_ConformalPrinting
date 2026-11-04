@@ -5,16 +5,14 @@
 % Generate an initial sampling of data to be used by main.m
 
 % Record the current date and time
+sampledate=string(datetime('now','Format','yyyyMMdd'));
 sampletime=string(datetime('now','Format','yyyyMMdd_HHmmss'));
+
 % Start a timer
 tic
 
 % Run Inputs.m
 Inputs
-
-% Break out the x and y mins and maxes for readability
-x_min = min(x_lim); x_max = max(x_lim); x_rng=x_max-x_min;
-y_min = min(y_lim); y_max = max(y_lim); y_rng=y_max-y_min;
 
 % Find (x,y) locations of points to sample
 % There are two types depending on the method:
@@ -41,7 +39,7 @@ elseif method==2 || method==3
     type=2;
     
     % Generate and scramble a semi-random Sobol sequence to sample Surface A
-    rng(1)
+    rng(seed)
     p = sobolset(2,'Skip',1e3,'Leap',1e2); 
     p = scramble(p,'MatousekAffineOwen');
     % Scale values from [0,1] to the size of the surface
@@ -100,6 +98,12 @@ res_in = res_s;
 testpoints(1:size(xt,1),:)=[xt yt ztB];
 
 % Save the points and sampling time to be called by main.m
-save(strcat(fullfile(pwd,'/Initial Samplings'),'/',word,'_t',num2str(type),...
+savePath = strcat(fullfile(pwd,'/Initial Samplings'),'/',sampledate);
+if ~exist(savePath,'dir')
+    mkdir(savePath)
+    addpath(savePath)
+end
+
+save(strcat(savePath,'/',word,'_t',num2str(type),...
     '_',nameB,'_n',num2str(n),'.mat'),"testpoints","t","sampletime",...
     "x_lim_in","y_lim_in","pad_in","res_in","initindex") 
